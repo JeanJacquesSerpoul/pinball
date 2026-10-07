@@ -56,6 +56,7 @@ function act(a) {
   else if (a === 'zoom') toggleZoom();
   else if (a === 'fx') toggleOpt('fx', 'optFx');
   else if (a === 'full') toggleFull();
+  else if (a === 'install' && installPrompt) { installPrompt.prompt(); installPrompt = null; $('optInstall').style.display = 'none'; }
   else if (a === 'help') showHelp();
   else if (a === 'high') showDlg('Meilleurs scores', `<table><tr><td>1.</td><td>Joueur 1</td><td style="text-align:right">${fmt(HIGH)}</td></tr></table>`);
   else if (a === 'about') showDlg('À propos de Pinball', '<b>3D Pinball – Space Cadet</b><br>Recréation hommage du flipper livré avec Windows XP.<br><br>Rendu 3D temps réel : Three.js (WebGL), éclairage PBR, reflets dynamiques, bloom et particules. Physique, graphismes et sons générés par code.');

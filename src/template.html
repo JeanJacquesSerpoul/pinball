@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>3D Pinball Space Cadet</title>
+<meta name="description" content="Recréation hommage du flipper de Windows XP, en 3D.">
+<meta name="theme-color" content="#0053ee">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
 /*@CSS*/
 </style>
@@ -25,6 +30,7 @@
         <div data-a="pause">Lancer / Interrompre<span>F3</span></div>
         <hr>
         <div data-a="high">Meilleurs scores...</div>
+        <div data-a="install" id="optInstall" style="display:none">Installer l'application...</div>
         <hr>
         <div data-a="close">Quitter</div>
       </div>
@@ -101,11 +107,15 @@
 <!-- =====================================================================
      MOTEUR 3D — Three.js + post-traitement (bloom), reflets temps réel
      ===================================================================== -->
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-} }
+<script>
+// Three.js : copie locale (hors ligne, application installée) ; CDN si le fichier est ouvert
+// directement (file://), car les navigateurs y interdisent le chargement de modules locaux.
+(function () {
+  const base = location.protocol === 'file:' ? 'https://cdn.jsdelivr.net/npm/three@0.160.0/' : './vendor/three/';
+  const map = document.createElement('script'); map.type = 'importmap';
+  map.textContent = JSON.stringify({ imports: { three: base + 'build/three.module.js', 'three/addons/': base + 'examples/jsm/' } });
+  document.currentScript.after(map);
+})();
 </script>
 <script type="module">
 //@RENDER3D

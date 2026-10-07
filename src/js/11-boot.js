@@ -1,4 +1,9 @@
 /* ---------------- Démarrage ---------------- */
+// Application installable et jouable hors ligne (uniquement quand le jeu est servi en http/https)
+let installPrompt = null;
+if (navigator.serviceWorker && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => { });
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('optInstall').style.display = ''; });
+addEventListener('appinstalled', () => { $('optInstall').style.display = 'none'; banner('APPLICATION INSTALLÉE', '#3cff6a'); });
 layout(); drawRanks(); updPanel();
 msg('3D PINBALL', 'Appuyez sur F2 pour une nouvelle partie', 9999);
 requestAnimationFrame(frame);
