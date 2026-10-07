@@ -56,6 +56,7 @@ function act(a) {
   else if (a === 'zoom') toggleZoom();
   else if (a === 'fx') toggleOpt('fx', 'optFx');
   else if (a === 'full') toggleFull();
+  else if (a.startsWith('q-')) setQuality(a.slice(2));
   else if (a === 'install' && installPrompt) { installPrompt.prompt(); installPrompt = null; $('optInstall').style.display = 'none'; }
   else if (a === 'help') showHelp();
   else if (a === 'high') showDlg('Meilleurs scores', `<table><tr><td>1.</td><td>Joueur 1</td><td style="text-align:right">${fmt(HIGH)}</td></tr></table>`);

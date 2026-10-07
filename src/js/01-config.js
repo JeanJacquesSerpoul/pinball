@@ -59,8 +59,8 @@ const G = {
 };
 const ball = { x: 386, y: 712, vx: 0, vy: 0, inLane: true, fromLane: true, cap: 0, capCd: 0, live: false, sens: {} };
 const keys = { left: false, right: false };
-const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true };
-try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; } catch (e) { }
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto' };
+try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; } catch (e) { }
 
 /* Effets visuels : relayés au moteur 3D s'il est chargé */
 function fx(type, a, b, c) {

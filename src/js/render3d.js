@@ -317,6 +317,7 @@ parts.frustumCulled = false; scene.add(parts);
 let pi = 0;
 const tmpC = new THREE.Color();
 function spawn(p, v, color, life, grav = 700) {
+  if (Q.particles < 1 && Math.random() > Q.particles) return;
   const k = pi++ % PN, k3 = k * 3;
   pPos[k3] = p.x; pPos[k3 + 1] = p.y; pPos[k3 + 2] = p.z; pVel[k3] = v.x; pVel[k3 + 1] = v.y; pVel[k3 + 2] = v.z;
   tmpC.set(color); pBase[k3] = tmpC.r * 3; pBase[k3 + 1] = tmpC.g * 3; pBase[k3 + 2] = tmpC.b * 3;
@@ -598,26 +599,64 @@ function render3D(dt, realDt) {
   renderer.toneMappingExposure = (G.tilt ? .55 : 1.08) * (1 - S.drainT * .45) * (G.paused ? .4 : 1);
   rimA.intensity = 30000 * (1 + S.pulse); rimB.intensity = 30000 * (1 + S.pulse);
 
-  renderer.shadowMap.needsUpdate = true;
+  autoQuality(realDt);
+  renderer.shadowMap.needsUpdate = Q.shadows > 0;
   grade.uniforms.uTime.value = t3;
   composer.render();
 
   // Reflets dynamiques de la bille (1 image sur 2)
   frameNo++;
-  if (ball.live) {
+  if (ball.live && frameNo % Q.cubeEvery === 0) {
     ballMesh.visible = false; trail.visible = false; ballGlow.visible = false;
     cubeCam.position.copy(ballMesh.position); cubeCam.update(renderer, scene);
     ballMesh.visible = true; trail.visible = true; ballGlow.visible = true;
   }
 }
+/* ---------- Qualité graphique ---------- */
+// haute : tout activé ; moyenne : résolution et ombres réduites, reflets 1 image sur 2 ;
+// basse : pas d'ombres ni de halo, reflets 1 image sur 4, moins de particules.
+const QUALITY = {
+  high: { res: 1, shadows: 2048, bloom: true, cubeEvery: 1, particles: 1 },
+  medium: { res: .75, shadows: 1024, bloom: true, cubeEvery: 2, particles: .6 },
+  low: { res: .55, shadows: 0, bloom: false, cubeEvery: 4, particles: .3 },
+};
+let autoLevel = 'high', Q = QUALITY.high, lastK = K;
+const fpsMeter = { t: 0, n: 0, warm: 3 };   // warm : délai avant mesure (compilation des shaders)
+function qualityLevel() { return OPT.quality === 'auto' ? autoLevel : OPT.quality; }
+function applyQuality() {
+  Q = QUALITY[qualityLevel()];
+  const wantShadows = Q.shadows > 0;
+  if (renderer.shadowMap.enabled !== wantShadows) {
+    renderer.shadowMap.enabled = wantShadows;
+    scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); });
+  }
+  if (wantShadows && key.shadow.mapSize.x !== Q.shadows) {
+    key.shadow.mapSize.set(Q.shadows, Q.shadows);
+    if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
+  }
+  bloom.enabled = Q.bloom;
+  fpsMeter.t = fpsMeter.n = 0; fpsMeter.warm = 3;
+  resize3D(lastK);
+}
+// Mode automatique : baisse la qualité si la fluidité chute durablement sous 45 images/s
+function autoQuality(realDt) {
+  if (OPT.quality !== 'auto' || G.paused || !OPT.view3d || realDt <= 0 || realDt > .25) return;
+  if (fpsMeter.warm > 0) { fpsMeter.warm -= realDt; return; }
+  fpsMeter.t += realDt; fpsMeter.n++;
+  if (fpsMeter.t < 3) return;
+  const fps = fpsMeter.n / fpsMeter.t; fpsMeter.t = fpsMeter.n = 0;
+  const next = { high: 'medium', medium: 'low' }[autoLevel];
+  if (fps < 45 && next) { autoLevel = next; applyQuality(); msg('QUALITÉ AJUSTÉE', `${QUALITY_NAMES[next].toLowerCase()} (${fps.toFixed(0)} images/s)`, 2.5); }
+}
 function resize3D(k) {
+  lastK = k; k = Math.max(.5, k * Q.res);
   renderer.setPixelRatio(k); renderer.setSize(STW, STH, false);
   composer.setPixelRatio(k); composer.setSize(STW, STH);
   grade.uniforms.uRes.value.set(STW * k, STH * k);
 }
 
 /* ---------- Activation ---------- */
-resize3D(K);
-window.R3D = { render: render3D, resize: resize3D };
+applyQuality();
+window.R3D = { render: render3D, resize: resize3D, applyQuality };
 applyView();
 window.__pb = { THREE, scene, camera, renderer, bloom };

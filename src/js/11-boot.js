@@ -17,8 +17,18 @@ function applyView() {
   $('loading').style.display = OPT.view3d && !window.R3D ? '' : 'none';
   $('optV3d').classList.toggle('chk', OPT.view3d); $('optV2d').classList.toggle('chk', !OPT.view3d);
   $('optZoom').classList.toggle('chk', OPT.zoom);
+  ['auto', 'high', 'medium', 'low'].forEach(q => $('optQ' + q).classList.toggle('chk', OPT.quality === q));
   // Les options de caméra et d'effets ne concernent que la 3D
-  ['optCam', 'optFx'].forEach(id => $(id).style.opacity = OPT.view3d ? '' : '.45');
+  ['optCam', 'optFx', 'optQauto', 'optQhigh', 'optQmedium', 'optQlow'].forEach(id => $(id).style.opacity = OPT.view3d ? '' : '.45');
+}
+// Qualité graphique 3D : auto (s'adapte à la fluidité), haute, moyenne, basse
+const QUALITY_NAMES = { auto: 'AUTOMATIQUE', high: 'HAUTE', medium: 'MOYENNE', low: 'BASSE' };
+function setQuality(q) {
+  OPT.quality = q;
+  try { localStorage.setItem('pinballXP.quality', q); } catch (e) { }
+  applyView();
+  if (window.R3D) window.R3D.applyQuality();
+  banner('QUALITÉ ' + QUALITY_NAMES[q], '#38e0ff');
 }
 function toggleZoom() {
   OPT.zoom = !OPT.zoom; $('optZoom').classList.toggle('chk', OPT.zoom);
