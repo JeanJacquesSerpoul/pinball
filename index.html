@@ -152,7 +152,10 @@
         <div data-a="new">Nouvelle partie<span>F2</span></div>
         <div data-a="pause">Lancer / Interrompre<span>F3</span></div>
         <hr>
+        <div data-a="daily">Défi du jour</div>
+        <hr>
         <div data-a="high">Meilleurs scores...</div>
+        <div data-a="stats">Statistiques...</div>
         <div data-a="install" id="optInstall" style="display:none">Installer l'application...</div>
         <hr>
         <div data-a="close">Quitter</div>
@@ -324,6 +327,8 @@ const DIFFS = {
   hard: { name: 'Difficile', grav: 1.15, save: 4, balls: 3, tilt: 2.4 },
 };
 const DIFF = () => DIFFS[OPT.diff] || DIFFS.normal;
+// Pente effective : difficulté × modificateur éventuel du défi du jour
+const gravity = () => DIFF().grav * ((G.mod && G.mod.grav) || 1);
 let HIGH = 0; try { HIGH = +localStorage.getItem('pinballXP.high') || 0; } catch (e) { }
 
 const G = {
@@ -331,7 +336,7 @@ const G = {
   mIdx: 0, prog: 0, need: 1, done: 0, tilt: false, tiltMeter: 0, save: 0, saveArmed: false,
   bonusHits: 0, lanes: [0, 0, 0], fuel: [0, 0, 0], charge: 0, charging: false, t: 0, shake: 0, shakeX: 0, shakeY: 0, orbitFlash: 0,
   step: 0, pending: false, mTime: 0, kickback: true, locks: 0, multi: false, jackpot: 50000, extraLit: false,
-  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3, slow: 0,
+  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3, slow: 0, daily: null, mod: {},
 };
 // Billes : « ball » désigne la bille en cours de traitement (ou la bille principale), « balls » toutes les billes en jeu
 function mkBall() { return { x: 386, y: 712, vx: 0, vy: 0, h: 0, inLane: true, fromLane: true, skill: false, cap: 0, capCd: 0, live: false, sens: {}, ramp: null }; }
@@ -505,16 +510,18 @@ function updPanel() {
 
 /* ---------------- Logique du jeu ---------------- */
 function add(p) { if (G.state === 'play' && !G.tilt) G.score += p; }
-function newGame() {
+// opts.daily : configuration du défi du jour (une seule bille, modificateur, mission de départ)
+function newGame(opts) {
   audio();
+  const daily = (opts && opts.daily) || null, mod = daily ? daily.mod : {};
   Object.assign(G, {
-    state: 'play', paused: false, score: 0, ball: 1, extra: 0, mult: 1, rank: 0, mIdx: 0, prog: 0, done: 0, tilt: false, tiltMeter: 0,
-    jackpot: 50000, locks: 0, multi: false, extraLit: false, maxBalls: DIFF().balls,
+    state: 'play', paused: false, score: 0, ball: 1, extra: 0, mult: 1, rank: 0, mIdx: daily ? daily.mIdx : 0, prog: 0, done: 0, tilt: false, tiltMeter: 0,
+    jackpot: mod.jackpot || 50000, locks: mod.locks || 0, multi: false, extraLit: false, maxBalls: daily ? 1 : DIFF().balls, daily, mod,
   });
   timers = [];
   setMission(false); drawRanks(); serve();
   SFX.start(); fx('start');
-  banner('BIENVENUE, CADET', '#38e0ff', 'MISSION : ' + MISSIONS[0].name.toUpperCase());
+  if (!daily) banner('BIENVENUE, CADET', '#38e0ff', 'MISSION : ' + mission().name.toUpperCase());
   msg('BIENVENUE, CADET', missionText(), 3);
   if (window.onGameStart) window.onGameStart();
 }
@@ -528,7 +535,7 @@ function setMission(pending) {
   G.need = missionStep().n * (1 + Math.floor(G.mIdx / MISSIONS.length));
   if (!pending) startMissionClock();
 }
-function startMissionClock() { const m = mission(); G.mTime = m.time ? m.time + 5 * Math.floor(G.mIdx / MISSIONS.length) : 0; }
+function startMissionClock() { const m = mission(), t = m.time || G.mod.timed; G.mTime = t ? t + 5 * Math.floor(G.mIdx / MISSIONS.length) : 0; }
 function acceptMission() {
   G.pending = false; startMissionClock();
   msg('MISSION ACCEPTÉE', missionText(), 2.5); banner('MISSION ACCEPTÉE', '#38e0ff', mission().name.toUpperCase()); SFX.big();
@@ -572,8 +579,8 @@ function majorShot() {
 }
 function rampDone() {
   if (G.tilt) return;
-  add(15000); G.jackpot += 2500; fx('ramp');
-  if (G.multi) { add(G.jackpot); banner('JACKPOT', '#ffd400', fmt(G.jackpot)); msg('JACKPOT !', fmt(G.jackpot), 3); flash('rgba(255,220,80,.8)'); fx('jackpot'); SFX.rank(); G.jackpot = 50000; }
+  add(15000); G.jackpot += 2500; fx('ramp'); stat('ramps');
+  if (G.multi) { add(G.jackpot); banner('JACKPOT', '#ffd400', fmt(G.jackpot)); msg('JACKPOT !', fmt(G.jackpot), 3); flash('rgba(255,220,80,.8)'); fx('jackpot'); SFX.rank(); G.jackpot = 50000; stat('jackpots'); }
   else if (G.locks < 3) {
     G.locks++;
     if (G.locks === 3) { banner('MULTIBILLE PRÊTE', '#ff40c8', 'VISEZ LE TROU NOIR'); msg('MULTIBILLE PRÊTE', 'Entrez dans le trou noir', 3); }
@@ -601,7 +608,7 @@ function addBall(auto) {
 }
 function startMultiball() {
   if (G.state !== 'play' || G.tilt) return;
-  G.multi = true; G.locks = 0; G.save = Math.max(G.save, 10); G.saveArmed = true;
+  G.multi = true; G.locks = 0; G.save = Math.max(G.save, 10); G.saveArmed = true; stat('multiballs');
   banner('MULTIBILLE !', '#ff40c8', 'JACKPOT SUR LA RAMPE'); msg('MULTIBILLE !', 'Jackpot : ' + fmt(G.jackpot), 3);
   flash('rgba(255,80,200,.8)'); SFX.rank(); fx('multiball');
   addBall(true); later(1.2, () => addBall(true));
@@ -611,7 +618,7 @@ function serve() {
   Object.assign(G, { mult: 1, lanes: [0, 0, 0], fuel: [0, 0, 0], tilt: false, tiltMeter: 0, save: 0, saveArmed: false, bonusHits: 0, multi: false, kickback: true, combo: 0, comboT: 0 });
   drops.forEach(d => d.on = true);
 }
-function launched() { if (!G.saveArmed) { G.saveArmed = true; G.save = DIFF().save; } }
+function launched() { if (!G.saveArmed) { G.saveArmed = true; G.save = G.mod.save || DIFF().save; } }
 function drainBall(b) {
   b.live = false; balls = balls.filter(x => x !== b);
   if (G.state !== 'play') { if (!balls.length) balls = [b]; ball = balls[0]; return; }
@@ -723,7 +730,7 @@ function hitBumper(b, i) {
   const vn = ball.vx * nx + ball.vy * ny;
   if (vn < 0) { ball.vx -= 1.6 * vn * nx; ball.vy -= 1.6 * vn * ny; }
   ball.vx += nx * 320; ball.vy += ny * 320;
-  b.fl = .15; add(500); G.jackpot += 250; G.bonusHits++; SFX.bump(); ev('bumper');
+  b.fl = .15; add(500 * (G.mod.bump || 1)); G.jackpot += 250; G.bonusHits++; SFX.bump(); ev('bumper');
   fx('bump', b.x - nx * b.r, b.y - ny * b.r, i);
 }
 function updFlipper(f, pressed, dt) {
@@ -768,7 +775,7 @@ function stepBall(dt) {
   // Sur la rampe : trajectoire guidée, la bille ralentit en montant et accélère en descendant
   if (ball.ramp) {
     const r = ball.ramp, prev = rampAt(r.d);
-    r.v = Math.max(380, Math.min(1500, r.v - (rampAt(r.d + 1).h - prev.h) * GRAV * DIFF().grav * dt * 1.2));
+    r.v = Math.max(380, Math.min(1500, r.v - (rampAt(r.d + 1).h - prev.h) * GRAV * gravity() * dt * 1.2));
     r.d += r.v * dt;
     if (r.d >= RAMP_LEN) {
       const end = RAMP[RAMP.length - 1];
@@ -778,7 +785,7 @@ function stepBall(dt) {
     return;
   }
 
-  ball.vy += GRAV * DIFF().grav * dt;
+  ball.vy += GRAV * gravity() * dt;
   ball.vx *= .99986; ball.vy *= .99986;
   const sp = Math.hypot(ball.vx, ball.vy); if (sp > MAXV) { ball.vx *= MAXV / sp; ball.vy *= MAXV / sp; }
   ball.x += ball.vx * dt; ball.y += ball.vy * dt;
@@ -1006,6 +1013,7 @@ let last = performance.now(), acc = 0, musicAcc = 0;
 // Fait avancer le jeu de dt secondes (physique à pas fixe, minuteries, états). Sans rendu.
 function update(dt) {
   G.t += dt;
+  if (G.state === 'play') STATS.time += dt;
   if (G.charging) G.charge = Math.min(1, G.charge + dt * 1.1);
   if (G.charging || G.charge) plunger.y1 = plunger.y2 = 722 + G.charge * 26;
   acc += dt;
@@ -1115,7 +1123,11 @@ function plungeEnd() {
 const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
 addEventListener('keydown', e => {
   if (REPLAY.active) { e.preventDefault(); endReplay(); return; }   // une touche passe la rediffusion
-  if (dlgOpen) { if (e.code === 'Enter' || e.code === 'Escape') closeDlg(); e.preventDefault(); return; }
+  if (dlgOpen) {   // dans une boîte de dialogue : Entrée/Échap ferment, la saisie de texte reste possible
+    if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Escape') { e.preventDefault(); closeDlg(); }
+    else if (!(e.target && e.target.tagName === 'INPUT')) e.preventDefault();
+    return;
+  }
   const c = e.code;
   if (c === 'F2') { e.preventDefault(); newGame(); return; }
   if (c === 'F3') { e.preventDefault(); togglePause(); return; }
@@ -1280,15 +1292,21 @@ function act(a) {
   else if (a.startsWith('d-')) setDifficulty(a.slice(2));
   else if (a === 'install' && installPrompt) { installPrompt.prompt(); installPrompt = null; $('optInstall').style.display = 'none'; }
   else if (a === 'help') showHelp();
-  else if (a === 'high') showDlg('Meilleurs scores', `<table><tr><td>1.</td><td>Joueur 1</td><td style="text-align:right">${fmt(HIGH)}</td></tr></table>`);
+  else if (a === 'high') showScores();
+  else if (a === 'stats') showStats();
+  else if (a === 'daily') startDaily();
   else if (a === 'about') showDlg('À propos de Pinball', '<b>3D Pinball – Space Cadet</b><br>Recréation hommage du flipper livré avec Windows XP.<br><br>Rendu 3D temps réel : Three.js (WebGL), éclairage PBR, reflets dynamiques, bloom et particules. Physique, graphismes et sons générés par code.');
 }
-let dlgOpen = false, pausedByDlg = false;
-function showDlg(t, html) {
-  $('dlgT').textContent = t; $('dlgB').innerHTML = html; $('dlg').classList.add('show'); dlgOpen = true;
+let dlgOpen = false, pausedByDlg = false, dlgCb = null;
+// cb : appelé à la fermeture de la boîte (OK, Entrée, Échap, bouton A de la manette)
+function showDlg(t, html, cb) {
+  $('dlgT').textContent = t; $('dlgB').innerHTML = html; $('dlg').classList.add('show'); dlgOpen = true; dlgCb = cb || null;
   if (G.state === 'play' && !G.paused) { G.paused = true; pausedByDlg = true; }
 }
-function closeDlg() { $('dlg').classList.remove('show'); dlgOpen = false; if (pausedByDlg) { G.paused = false; pausedByDlg = false; last = performance.now(); } }
+function closeDlg() {
+  $('dlg').classList.remove('show'); dlgOpen = false; if (pausedByDlg) { G.paused = false; pausedByDlg = false; last = performance.now(); }
+  const cb = dlgCb; dlgCb = null; if (cb) cb();
+}
 $('dlgOk').onclick = closeDlg; $('dlgX').onclick = closeDlg;
 function showHelp() {
   showDlg('Commandes du jeu', `<table>
@@ -1362,6 +1380,97 @@ function setView(v3) {
   banner(v3 ? (window.R3D ? 'AFFICHAGE 3D' : 'CHARGEMENT 3D…') : 'AFFICHAGE 2D', v3 ? '#38e0ff' : '#ffd23a');
 }
 applyView();
+/* ---------------- Meilleurs scores, statistiques et défi du jour ---------------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('pinballXP.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('pinballXP.' + k, JSON.stringify(v)); } catch (e) { } },
+};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Top 10 : { name, score, rank, date, mode }
+let SCORES = store.get('scores', []);
+if (!SCORES.length && HIGH) SCORES = [{ name: '???', score: HIGH, rank: 0, date: '', mode: 'normal' }];
+const STATS = Object.assign({ games: 0, balls: 0, missions: 0, ramps: 0, multiballs: 0, jackpots: 0, time: 0, total: 0, best: 0, bestRank: 0, dailies: 0 }, store.get('stats', {}));
+function stat(k, n = 1) { STATS[k] = (STATS[k] || 0) + n; }
+
+/* ----- Défi du jour : même configuration pour tout le monde ce jour-là, une seule bille ----- */
+const DAILY_MODS = [
+  { name: 'Bumpers surpuissants', desc: 'Les bumpers rapportent 3 fois plus', bump: 3 },
+  { name: 'Gravité lunaire', desc: 'La table est moins pentue', grav: .8 },
+  { name: 'Table raide', desc: 'Table plus pentue, sauvetage de 15 s', grav: 1.2, save: 15 },
+  { name: 'Jackpot doré', desc: 'Le jackpot démarre à 200 000', jackpot: 200000 },
+  { name: 'Multibille offert', desc: 'Le multibille est prêt dès le départ', locks: 3 },
+  { name: 'Course folle', desc: 'Toutes les missions sont chronométrées (40 s)', timed: 40 },
+];
+function todayKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function dailySeed(key = todayKey()) { let h = 7; for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function dailyConfig(key = todayKey()) { const s = dailySeed(key); return { key, mod: DAILY_MODS[s % DAILY_MODS.length], mIdx: (s >>> 3) % MISSIONS.length }; }
+function startDaily() {
+  const d = dailyConfig(), best = store.get('daily', {})[d.key];
+  newGame({ daily: d });
+  stat('dailies');
+  banner('DÉFI DU JOUR', '#ffd23a', d.mod.name.toUpperCase());
+  msg('DÉFI DU JOUR : ' + d.mod.name.toUpperCase(), d.mod.desc + '\nUne seule bille' + (best ? ` · record du jour ${fmt(best.score)}` : ''), 5);
+}
+
+/* ----- Branchements sur les événements du jeu ----- */
+const _onLost = window.onBallLost;
+window.onBallLost = () => { stat('balls'); store.set('stats', STATS); if (_onLost) _onLost(); };
+window.onGameStart = () => stat('games');
+window.onMission = () => stat('missions');
+window.onGameOver = () => {
+  stat('total', G.score); STATS.best = Math.max(STATS.best, G.score); STATS.bestRank = Math.max(STATS.bestRank, G.rank);
+  store.set('stats', STATS);
+  const mode = G.daily ? 'daily' : OPT.diff;
+  if (G.daily) {
+    const all = store.get('daily', {}), prev = all[G.daily.key];
+    if (!prev || G.score > prev.score) { all[G.daily.key] = { score: G.score, name: store.get('lastName', 'AAA') }; store.set('daily', all); later(1.5, () => banner('RECORD DU JOUR', '#ffd23a', fmt(G.score))); }
+  }
+  if (G.score > 0 && (SCORES.length < 10 || G.score > SCORES[SCORES.length - 1].score)) later(2.5, () => askInitials(G.score, name => {
+    SCORES.push({ name, score: G.score, rank: G.rank, date: todayKey(), mode });
+    SCORES.sort((a, b) => b.score - a.score); SCORES = SCORES.slice(0, 10); store.set('scores', SCORES);
+    if (G.daily) { const all = store.get('daily', {}); if (all[G.daily.key] && all[G.daily.key].score === G.score) { all[G.daily.key].name = name; store.set('daily', all); } }
+    showScores(name, G.score);
+  }));
+};
+
+/* ----- Boîtes de dialogue ----- */
+function askInitials(score, cb) {
+  const last = store.get('lastName', '');
+  showDlg('Nouveau meilleur score !', `<p style="margin:0 0 8px">Score : <b>${fmt(score)}</b> — vous entrez dans le top 10.<br>Entrez vos initiales :</p>
+    <input id="initials" maxlength="3" value="${esc(last)}" autocomplete="off" spellcheck="false"
+      style="font:bold 28px 'Lucida Console',monospace;width:5.2em;text-align:center;text-transform:uppercase;letter-spacing:6px;padding:4px">`,
+  () => {
+    const name = (($('initials') && $('initials').value) || last || 'AAA').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'AAA';
+    store.set('lastName', name); cb(name);
+  });
+  setTimeout(() => { const i = $('initials'); if (i && i.focus) { i.focus(); i.select(); } }, 60);
+}
+const MODE_NAMES = { easy: 'facile', normal: 'normal', hard: 'difficile', daily: 'défi du jour' };
+function showScores(hlName, hlScore) {
+  const rows = SCORES.map((s, i) => {
+    const hl = s.name === hlName && s.score === hlScore ? ' style="background:#ffeaa0"' : '';
+    return `<tr${hl}><td>${i + 1}.</td><td>${esc(s.name)}</td><td style="text-align:right">${fmt(s.score)}</td><td>${esc(RANKS[s.rank] || '')}</td><td style="color:#666">${esc(MODE_NAMES[s.mode] || '')}</td></tr>`;
+  }).join('') || '<tr><td colspan="5">Aucun score pour le moment.</td></tr>';
+  const d = dailyConfig(), best = store.get('daily', {})[d.key];
+  showDlg('Meilleurs scores', `<table>${rows}</table>
+    <hr style="border:0;border-top:1px solid #aca899;margin:10px 0">
+    <b>Défi du jour</b> (${d.key}) : ${esc(d.mod.name)} — ${esc(d.mod.desc)}.<br>
+    ${best ? `Record du jour : <b>${fmt(best.score)}</b> (${esc(best.name)})` : 'Pas encore joué aujourd’hui.'}`);
+}
+function showStats() {
+  const h = Math.floor(STATS.time / 3600), m = Math.floor(STATS.time % 3600 / 60);
+  const row = (k, v) => `<tr><td>${k}</td><td style="text-align:right">${v}</td></tr>`;
+  showDlg('Statistiques', `<table>
+    ${row('Parties jouées', fmt(STATS.games))}${row('dont défis du jour', fmt(STATS.dailies))}
+    ${row('Temps de jeu', `${h} h ${String(m).padStart(2, '0')} min`)}
+    ${row('Meilleur score', fmt(STATS.best))}
+    ${row('Score moyen', fmt(STATS.games ? Math.round(STATS.total / STATS.games) : 0))}
+    ${row('Billes jouées', fmt(STATS.balls))}${row('Durée moyenne d’une bille', STATS.balls ? Math.round(STATS.time / STATS.balls) + ' s' : '-')}
+    ${row('Missions accomplies', fmt(STATS.missions))}${row('Meilleur grade', RANKS[STATS.bestRank])}
+    ${row('Rampes', fmt(STATS.ramps))}${row('Multibilles', fmt(STATS.multiballs))}${row('Jackpots', fmt(STATS.jackpots))}
+  </table>`);
+}
 </script>
 
 <!-- =====================================================================

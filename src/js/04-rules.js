@@ -1,15 +1,17 @@
 /* ---------------- Logique du jeu ---------------- */
 function add(p) { if (G.state === 'play' && !G.tilt) G.score += p; }
-function newGame() {
+// opts.daily : configuration du défi du jour (une seule bille, modificateur, mission de départ)
+function newGame(opts) {
   audio();
+  const daily = (opts && opts.daily) || null, mod = daily ? daily.mod : {};
   Object.assign(G, {
-    state: 'play', paused: false, score: 0, ball: 1, extra: 0, mult: 1, rank: 0, mIdx: 0, prog: 0, done: 0, tilt: false, tiltMeter: 0,
-    jackpot: 50000, locks: 0, multi: false, extraLit: false, maxBalls: DIFF().balls,
+    state: 'play', paused: false, score: 0, ball: 1, extra: 0, mult: 1, rank: 0, mIdx: daily ? daily.mIdx : 0, prog: 0, done: 0, tilt: false, tiltMeter: 0,
+    jackpot: mod.jackpot || 50000, locks: mod.locks || 0, multi: false, extraLit: false, maxBalls: daily ? 1 : DIFF().balls, daily, mod,
   });
   timers = [];
   setMission(false); drawRanks(); serve();
   SFX.start(); fx('start');
-  banner('BIENVENUE, CADET', '#38e0ff', 'MISSION : ' + MISSIONS[0].name.toUpperCase());
+  if (!daily) banner('BIENVENUE, CADET', '#38e0ff', 'MISSION : ' + mission().name.toUpperCase());
   msg('BIENVENUE, CADET', missionText(), 3);
   if (window.onGameStart) window.onGameStart();
 }
@@ -23,7 +25,7 @@ function setMission(pending) {
   G.need = missionStep().n * (1 + Math.floor(G.mIdx / MISSIONS.length));
   if (!pending) startMissionClock();
 }
-function startMissionClock() { const m = mission(); G.mTime = m.time ? m.time + 5 * Math.floor(G.mIdx / MISSIONS.length) : 0; }
+function startMissionClock() { const m = mission(), t = m.time || G.mod.timed; G.mTime = t ? t + 5 * Math.floor(G.mIdx / MISSIONS.length) : 0; }
 function acceptMission() {
   G.pending = false; startMissionClock();
   msg('MISSION ACCEPTÉE', missionText(), 2.5); banner('MISSION ACCEPTÉE', '#38e0ff', mission().name.toUpperCase()); SFX.big();
@@ -67,8 +69,8 @@ function majorShot() {
 }
 function rampDone() {
   if (G.tilt) return;
-  add(15000); G.jackpot += 2500; fx('ramp');
-  if (G.multi) { add(G.jackpot); banner('JACKPOT', '#ffd400', fmt(G.jackpot)); msg('JACKPOT !', fmt(G.jackpot), 3); flash('rgba(255,220,80,.8)'); fx('jackpot'); SFX.rank(); G.jackpot = 50000; }
+  add(15000); G.jackpot += 2500; fx('ramp'); stat('ramps');
+  if (G.multi) { add(G.jackpot); banner('JACKPOT', '#ffd400', fmt(G.jackpot)); msg('JACKPOT !', fmt(G.jackpot), 3); flash('rgba(255,220,80,.8)'); fx('jackpot'); SFX.rank(); G.jackpot = 50000; stat('jackpots'); }
   else if (G.locks < 3) {
     G.locks++;
     if (G.locks === 3) { banner('MULTIBILLE PRÊTE', '#ff40c8', 'VISEZ LE TROU NOIR'); msg('MULTIBILLE PRÊTE', 'Entrez dans le trou noir', 3); }
@@ -96,7 +98,7 @@ function addBall(auto) {
 }
 function startMultiball() {
   if (G.state !== 'play' || G.tilt) return;
-  G.multi = true; G.locks = 0; G.save = Math.max(G.save, 10); G.saveArmed = true;
+  G.multi = true; G.locks = 0; G.save = Math.max(G.save, 10); G.saveArmed = true; stat('multiballs');
   banner('MULTIBILLE !', '#ff40c8', 'JACKPOT SUR LA RAMPE'); msg('MULTIBILLE !', 'Jackpot : ' + fmt(G.jackpot), 3);
   flash('rgba(255,80,200,.8)'); SFX.rank(); fx('multiball');
   addBall(true); later(1.2, () => addBall(true));
@@ -106,7 +108,7 @@ function serve() {
   Object.assign(G, { mult: 1, lanes: [0, 0, 0], fuel: [0, 0, 0], tilt: false, tiltMeter: 0, save: 0, saveArmed: false, bonusHits: 0, multi: false, kickback: true, combo: 0, comboT: 0 });
   drops.forEach(d => d.on = true);
 }
-function launched() { if (!G.saveArmed) { G.saveArmed = true; G.save = DIFF().save; } }
+function launched() { if (!G.saveArmed) { G.saveArmed = true; G.save = G.mod.save || DIFF().save; } }
 function drainBall(b) {
   b.live = false; balls = balls.filter(x => x !== b);
   if (G.state !== 'play') { if (!balls.length) balls = [b]; ball = balls[0]; return; }

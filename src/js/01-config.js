@@ -85,6 +85,8 @@ const DIFFS = {
   hard: { name: 'Difficile', grav: 1.15, save: 4, balls: 3, tilt: 2.4 },
 };
 const DIFF = () => DIFFS[OPT.diff] || DIFFS.normal;
+// Pente effective : difficulté × modificateur éventuel du défi du jour
+const gravity = () => DIFF().grav * ((G.mod && G.mod.grav) || 1);
 let HIGH = 0; try { HIGH = +localStorage.getItem('pinballXP.high') || 0; } catch (e) { }
 
 const G = {
@@ -92,7 +94,7 @@ const G = {
   mIdx: 0, prog: 0, need: 1, done: 0, tilt: false, tiltMeter: 0, save: 0, saveArmed: false,
   bonusHits: 0, lanes: [0, 0, 0], fuel: [0, 0, 0], charge: 0, charging: false, t: 0, shake: 0, shakeX: 0, shakeY: 0, orbitFlash: 0,
   step: 0, pending: false, mTime: 0, kickback: true, locks: 0, multi: false, jackpot: 50000, extraLit: false,
-  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3, slow: 0,
+  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3, slow: 0, daily: null, mod: {},
 };
 // Billes : « ball » désigne la bille en cours de traitement (ou la bille principale), « balls » toutes les billes en jeu
 function mkBall() { return { x: 386, y: 712, vx: 0, vy: 0, h: 0, inLane: true, fromLane: true, skill: false, cap: 0, capCd: 0, live: false, sens: {}, ramp: null }; }

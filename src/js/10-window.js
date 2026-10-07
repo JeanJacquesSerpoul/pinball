@@ -62,15 +62,21 @@ function act(a) {
   else if (a.startsWith('d-')) setDifficulty(a.slice(2));
   else if (a === 'install' && installPrompt) { installPrompt.prompt(); installPrompt = null; $('optInstall').style.display = 'none'; }
   else if (a === 'help') showHelp();
-  else if (a === 'high') showDlg('Meilleurs scores', `<table><tr><td>1.</td><td>Joueur 1</td><td style="text-align:right">${fmt(HIGH)}</td></tr></table>`);
+  else if (a === 'high') showScores();
+  else if (a === 'stats') showStats();
+  else if (a === 'daily') startDaily();
   else if (a === 'about') showDlg('À propos de Pinball', '<b>3D Pinball – Space Cadet</b><br>Recréation hommage du flipper livré avec Windows XP.<br><br>Rendu 3D temps réel : Three.js (WebGL), éclairage PBR, reflets dynamiques, bloom et particules. Physique, graphismes et sons générés par code.');
 }
-let dlgOpen = false, pausedByDlg = false;
-function showDlg(t, html) {
-  $('dlgT').textContent = t; $('dlgB').innerHTML = html; $('dlg').classList.add('show'); dlgOpen = true;
+let dlgOpen = false, pausedByDlg = false, dlgCb = null;
+// cb : appelé à la fermeture de la boîte (OK, Entrée, Échap, bouton A de la manette)
+function showDlg(t, html, cb) {
+  $('dlgT').textContent = t; $('dlgB').innerHTML = html; $('dlg').classList.add('show'); dlgOpen = true; dlgCb = cb || null;
   if (G.state === 'play' && !G.paused) { G.paused = true; pausedByDlg = true; }
 }
-function closeDlg() { $('dlg').classList.remove('show'); dlgOpen = false; if (pausedByDlg) { G.paused = false; pausedByDlg = false; last = performance.now(); } }
+function closeDlg() {
+  $('dlg').classList.remove('show'); dlgOpen = false; if (pausedByDlg) { G.paused = false; pausedByDlg = false; last = performance.now(); }
+  const cb = dlgCb; dlgCb = null; if (cb) cb();
+}
 $('dlgOk').onclick = closeDlg; $('dlgX').onclick = closeDlg;
 function showHelp() {
   showDlg('Commandes du jeu', `<table>

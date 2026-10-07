@@ -27,7 +27,11 @@ function plungeEnd() {
 const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
 addEventListener('keydown', e => {
   if (REPLAY.active) { e.preventDefault(); endReplay(); return; }   // une touche passe la rediffusion
-  if (dlgOpen) { if (e.code === 'Enter' || e.code === 'Escape') closeDlg(); e.preventDefault(); return; }
+  if (dlgOpen) {   // dans une boîte de dialogue : Entrée/Échap ferment, la saisie de texte reste possible
+    if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Escape') { e.preventDefault(); closeDlg(); }
+    else if (!(e.target && e.target.tagName === 'INPUT')) e.preventDefault();
+    return;
+  }
   const c = e.code;
   if (c === 'F2') { e.preventDefault(); newGame(); return; }
   if (c === 'F3') { e.preventDefault(); togglePause(); return; }

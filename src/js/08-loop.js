@@ -3,6 +3,7 @@ let last = performance.now(), acc = 0, musicAcc = 0;
 // Fait avancer le jeu de dt secondes (physique à pas fixe, minuteries, états). Sans rendu.
 function update(dt) {
   G.t += dt;
+  if (G.state === 'play') STATS.time += dt;
   if (G.charging) G.charge = Math.min(1, G.charge + dt * 1.1);
   if (G.charging || G.charge) plunger.y1 = plunger.y2 = 722 + G.charge * 26;
   acc += dt;

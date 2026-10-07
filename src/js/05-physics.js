@@ -59,7 +59,7 @@ function hitBumper(b, i) {
   const vn = ball.vx * nx + ball.vy * ny;
   if (vn < 0) { ball.vx -= 1.6 * vn * nx; ball.vy -= 1.6 * vn * ny; }
   ball.vx += nx * 320; ball.vy += ny * 320;
-  b.fl = .15; add(500); G.jackpot += 250; G.bonusHits++; SFX.bump(); ev('bumper');
+  b.fl = .15; add(500 * (G.mod.bump || 1)); G.jackpot += 250; G.bonusHits++; SFX.bump(); ev('bumper');
   fx('bump', b.x - nx * b.r, b.y - ny * b.r, i);
 }
 function updFlipper(f, pressed, dt) {
@@ -104,7 +104,7 @@ function stepBall(dt) {
   // Sur la rampe : trajectoire guidée, la bille ralentit en montant et accélère en descendant
   if (ball.ramp) {
     const r = ball.ramp, prev = rampAt(r.d);
-    r.v = Math.max(380, Math.min(1500, r.v - (rampAt(r.d + 1).h - prev.h) * GRAV * DIFF().grav * dt * 1.2));
+    r.v = Math.max(380, Math.min(1500, r.v - (rampAt(r.d + 1).h - prev.h) * GRAV * gravity() * dt * 1.2));
     r.d += r.v * dt;
     if (r.d >= RAMP_LEN) {
       const end = RAMP[RAMP.length - 1];
@@ -114,7 +114,7 @@ function stepBall(dt) {
     return;
   }
 
-  ball.vy += GRAV * DIFF().grav * dt;
+  ball.vy += GRAV * gravity() * dt;
   ball.vx *= .99986; ball.vy *= .99986;
   const sp = Math.hypot(ball.vx, ball.vy); if (sp > MAXV) { ball.vx *= MAXV / sp; ball.vy *= MAXV / sp; }
   ball.x += ball.vx * dt; ball.y += ball.vy * dt;
