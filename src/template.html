@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>3D Pinball Space Cadet</title>
+<style>
+/*@CSS*/
+</style>
+</head>
+<body>
+
+<div id="win">
+  <div id="title">
+    <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#1a1a5a" stroke="#9ab" /><path d="M8 2 L10.5 9 L8 8 L5.5 9 Z" fill="#ddd"/><path d="M6.5 9.5 L8 13 L9.5 9.5Z" fill="#f80"/></svg>
+    <span class="t">3D Pinball pour Windows - Space Cadet</span>
+    <div class="tb" id="bMin" title="Réduire">_</div>
+    <div class="tb" id="bMax" title="Plein écran">□</div>
+    <div class="tb close" id="bClose" title="Fermer">✕</div>
+  </div>
+  <div id="menu">
+    <div class="mi">Jeu
+      <div class="dd">
+        <div data-a="new">Nouvelle partie<span>F2</span></div>
+        <div data-a="pause">Lancer / Interrompre<span>F3</span></div>
+        <hr>
+        <div data-a="high">Meilleurs scores...</div>
+        <hr>
+        <div data-a="close">Quitter</div>
+      </div>
+    </div>
+    <div class="mi">Options
+      <div class="dd">
+        <div data-a="sound" id="optSound" class="chk">Effets sonores</div>
+        <div data-a="music" id="optMusic">Musique</div>
+        <hr>
+        <div data-a="v2d" id="optV2d">Affichage 2D (classique)</div>
+        <div data-a="v3d" id="optV3d" class="chk">Affichage 3D<span>F6</span></div>
+        <hr>
+        <div data-a="rumble" id="optRumble" class="chk">Vibrations de la manette</div>
+        <hr>
+        <div data-a="cam" id="optCam" class="chk">Caméra dynamique</div>
+        <div data-a="zoom" id="optZoom">Zoom sur la bille<span>F7</span></div>
+        <div data-a="fx" id="optFx" class="chk">Effets spectaculaires</div>
+        <hr>
+        <div data-a="full">Plein écran<span>F4</span></div>
+      </div>
+    </div>
+    <div class="mi">?
+      <div class="dd">
+        <div data-a="help">Commandes du jeu<span>F1</span></div>
+        <div data-a="about">À propos de Pinball</div>
+      </div>
+    </div>
+  </div>
+  <div id="client">
+    <div id="stage">
+      <canvas id="table" width="420" height="780"></canvas>
+      <canvas id="gl"></canvas>
+      <div id="flash"></div>
+      <div id="banner"></div>
+      <div id="overlay"><div class="o1"></div><div class="o2"></div></div>
+      <div id="loading">Chargement du moteur 3D…</div>
+    </div>
+    <div id="panel">
+      <div class="logo"><div class="l1">3D Pinball</div><div class="l2">Space Cadet</div></div>
+      <div class="lcd">
+        <div class="row"><span>BILLE</span><b id="ball">-</b></div>
+        <div class="row"><span>JOUEUR</span><b>1</b></div>
+        <div class="score" id="score">0</div>
+      </div>
+      <div class="msgbox"><div id="msg1"></div><div id="msg2"></div></div>
+      <div class="ranks" id="ranks"></div>
+      <div class="hi">RECORD : <span id="hi">0</span></div>
+      <div class="keys">
+        <b>Z</b> / <b>Maj G</b> / <b>←</b> : flipper gauche<br>
+        <b>/</b> / <b>Maj D</b> / <b>→</b> : flipper droit<br>
+        <b>Espace</b> (maintenir) : lanceur<br>
+        <b>Clic G</b> / <b>Clic D</b> : flippers<br>
+        <b>Manette</b> : LB / RB flippers · A lanceur<br>
+        <b>X</b> <b>.</b> <b>↑</b> : secouer la table<br>
+        <b>F2</b> nouvelle partie · <b>F3</b> pause
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="taskbar">
+  <div id="start"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M2 4 Q6 2 9.4 4 L8.6 9.3 Q5.3 7.5 1.3 9.3Z" fill="#f65314"/><path d="M10.4 4.3 Q14 2.3 18.7 4 L17.9 9.3 Q13.8 7.6 9.6 9.5Z" fill="#7cbb00"/><path d="M1.2 10.3 Q5 8.5 8.5 10.3 L7.7 15.6 Q4.3 13.9 .4 15.6Z" fill="#00a1f1"/><path d="M9.5 10.5 Q13.6 8.6 17.8 10.3 L17 15.6 Q13 14 8.7 15.8Z" fill="#ffbb00"/></svg>démarrer</div>
+  <div id="task">◉ 3D Pinball - Space Cadet</div>
+  <div id="tray"><span id="clock"></span></div>
+</div>
+
+<div id="dlg"><div class="dwin"><div class="dt"><span id="dlgT"></span><div class="tb close" id="dlgX" style="width:19px;height:19px;font-size:11px">✕</div></div>
+  <div class="db" id="dlgB"></div><div class="bf"><button class="xbtn" id="dlgOk">OK</button></div></div></div>
+
+<script>
+//@GAME
+</script>
+
+<!-- =====================================================================
+     MOTEUR 3D — Three.js + post-traitement (bloom), reflets temps réel
+     ===================================================================== -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+//@RENDER3D
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "pinball",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Recréation hommage de 3D Pinball Space Cadet (Windows XP) en HTML5 / Three.js",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}
