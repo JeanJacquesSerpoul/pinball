@@ -191,6 +191,7 @@
         <b>Z</b> / <b>Maj G</b> / <b>←</b> : flipper gauche<br>
         <b>/</b> / <b>Maj D</b> / <b>→</b> : flipper droit<br>
         <b>Espace</b> (maintenir) : lanceur<br>
+        <b>Clic G</b> / <b>Clic D</b> : flippers<br>
         <b>X</b> <b>.</b> <b>↑</b> : secouer la table<br>
         <b>F2</b> nouvelle partie · <b>F3</b> pause
       </div>
@@ -778,21 +779,39 @@ addEventListener('keyup', e => {
   else if (KP.includes(c)) plungeEnd();
 });
 // Tactile / souris sur la zone de jeu
-const stage = $('stage'), ptrs = new Map();
-stage.addEventListener('pointerdown', e => {
-  e.preventDefault(); stage.setPointerCapture(e.pointerId); audio();
-  if (G.state !== 'play') { newGame(); return; }
-  const r = stage.getBoundingClientRect(), fx_ = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
-  let role;
-  if (ball.inLane && fx_ > .75 && fy > .6) { role = 'P'; plungeStart(); }
-  else if (fx_ < .5) { role = 'L'; flip('L', true); } else { role = 'R'; flip('R', true); }
-  ptrs.set(e.pointerId, role);
-});
-function ptrUp(e) {
-  const role = ptrs.get(e.pointerId); if (!role) return; ptrs.delete(e.pointerId);
-  if (role === 'P') plungeEnd(); else if (![...ptrs.values()].includes(role)) flip(role, false);
+// Commandes à la souris et au toucher.
+// Souris : clic gauche = flipper gauche, clic droit = flipper droit, clic molette = lanceur
+// (clic gauche sur le lanceur quand la bille l'attend). Toucher : moitié gauche / droite de la table.
+const stage = $('stage'), holds = new Map();   // source (doigt ou bouton) -> rôle 'L' | 'R' | 'P'
+function holdStart(id, role) {
+  holds.set(id, role);
+  if (role === 'P') plungeStart(); else flip(role, true);
 }
+function holdEnd(id) {
+  const role = holds.get(id); if (!role) return; holds.delete(id);
+  if (role === 'P') plungeEnd(); else if (![...holds.values()].includes(role)) flip(role, false);
+}
+function inPlungerZone(e) {
+  const r = stage.getBoundingClientRect();
+  return ball.inLane && (e.clientX - r.left) / r.width > .75 && (e.clientY - r.top) / r.height > .6;
+}
+stage.addEventListener('mousedown', e => {
+  e.preventDefault(); audio();
+  if (G.state !== 'play') { if (e.button === 0) newGame(); return; }
+  const role = e.button === 2 ? 'R' : e.button === 1 ? 'P' : e.button === 0 ? (inPlungerZone(e) ? 'P' : 'L') : null;
+  if (role) holdStart('m' + e.button, role);
+});
+addEventListener('mouseup', e => holdEnd('m' + e.button));   // relâché même hors de la table
+stage.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse') return;                      // la souris passe par mousedown
+  e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (_) { } audio();
+  if (G.state !== 'play') { newGame(); return; }
+  const r = stage.getBoundingClientRect();
+  holdStart('p' + e.pointerId, inPlungerZone(e) ? 'P' : (e.clientX - r.left) / r.width < .5 ? 'L' : 'R');
+});
+const ptrUp = e => { if (e.pointerType !== 'mouse') holdEnd('p' + e.pointerId); };
 stage.addEventListener('pointerup', ptrUp); stage.addEventListener('pointercancel', ptrUp);
+addEventListener('blur', () => [...holds.keys()].forEach(holdEnd));
 stage.addEventListener('contextmenu', e => e.preventDefault());
 
 function togglePause() { if (G.state !== 'play') return; G.paused = !G.paused; if (G.paused) msg('PAUSE', 'F3 pour reprendre', 9999); else { msgT = 0; idleText(); } }
@@ -875,6 +894,7 @@ function showHelp() {
     <tr><td>Nouvelle partie</td><td>F2</td></tr><tr><td>Pause</td><td>F3</td></tr>
     <tr><td>Affichage 2D / 3D</td><td>F6 (ou menu Options)</td></tr>
     <tr><td>Zoom sur la bille</td><td>F7 (ou menu Options)</td></tr>
+    <tr><td>Souris</td><td>Clic gauche / droit = flipper gauche / droit, clic molette = lanceur</td></tr>
     <tr><td>Tactile</td><td>Moitié gauche/droite = flippers, coin bas-droit = lanceur</td></tr></table>
     <br><b>But :</b> accomplissez les missions pour monter en grade, de Cadet jusqu'à Amiral de la Flotte. Les 3 couloirs du haut augmentent le multiplicateur ; 3 missions = une bille supplémentaire. Attention au TILT !`);
 }
