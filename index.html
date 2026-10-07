@@ -1,0 +1,1477 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>3D Pinball Space Cadet</title>
+<style>
+  :root{ --xp-face:#ece9d8; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;user-select:none;-webkit-user-select:none}
+  body{
+    font-family:Tahoma,Verdana,Segoe UI,sans-serif;font-size:11px;
+    background:linear-gradient(#2f6fd6 0%,#7fb2f0 45%,#bcd8f5 58%,#6fae46 60%,#4f8f2c 80%,#3c7322 100%);
+  }
+  /* ---------- Fenêtre XP ---------- */
+  #win{position:absolute;left:0;top:0;width:873px;transform-origin:0 0;
+    border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0;background:var(--xp-face);
+    box-shadow:2px 4px 14px rgba(0,0,0,.45)}
+  #title{height:30px;display:flex;align-items:center;padding:0 5px 0 9px;color:#fff;font-weight:bold;font-size:13px;
+    background:linear-gradient(#0997ff 0%,#0053ee 8%,#0050ee 40%,#06f 88%,#06f 93%,#005bff 95%,#003dd7 96%,#003dd7 100%);
+    border-radius:7px 7px 0 0;margin:0 -3px;text-shadow:1px 1px #0f1089;cursor:default}
+  #title .ico{width:16px;height:16px;margin-right:6px;flex:none}
+  #title .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tb{width:21px;height:21px;margin-left:2px;border:1px solid #fff;border-radius:3px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#3c8cff,#2163e0 60%,#1446c8);color:#fff;font:bold 13px/1 Tahoma;cursor:pointer}
+  .tb:hover{filter:brightness(1.15)}
+  .tb.close{background:linear-gradient(135deg,#e7836a,#d4462a 60%,#b32b10)}
+  #menu{height:20px;display:flex;align-items:center;background:var(--xp-face);border-bottom:1px solid #d6d3c4;position:relative;z-index:5}
+  .mi{padding:2px 7px;cursor:default;position:relative}
+  .mi:hover,.mi.open{background:#316ac5;color:#fff}
+  .dd{display:none;position:absolute;left:0;top:19px;min-width:200px;background:#fff;border:1px solid #aca899;
+    box-shadow:2px 2px 4px rgba(0,0,0,.35);padding:2px;color:#000}
+  .mi.open .dd{display:block}
+  .dd div{padding:3px 20px 3px 22px;display:flex;justify-content:space-between;gap:20px;position:relative}
+  .dd div:hover{background:#316ac5;color:#fff}
+  .dd div.chk::before{content:"✓";position:absolute;left:7px}
+  .dd hr{border:0;border-top:1px solid #aca899;margin:3px 1px}
+  #client{display:flex;background:#000;border:1px solid #808080}
+  /* ---------- Zone de jeu ---------- */
+  #stage{position:relative;width:600px;height:780px;background:#000;overflow:hidden;touch-action:none;flex:none}
+  #table{position:absolute;left:90px;top:0;width:420px;height:780px;display:block}
+  #gl{position:absolute;left:0;top:0;width:600px;height:780px;display:none}
+  #flash{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:screen}
+  #flash.go{animation:flash .6s ease-out forwards}
+  @keyframes flash{0%{opacity:1}100%{opacity:0}}
+  #banner{position:absolute;left:0;right:0;top:36%;text-align:center;pointer-events:none;opacity:0;color:#fff;
+    font:italic 900 44px/1.05 "Arial Black",Impact,sans-serif;letter-spacing:1px;padding:0 20px;
+    text-shadow:0 0 8px var(--c),0 0 22px var(--c),0 0 48px var(--c),3px 4px 0 #000;-webkit-text-stroke:1px rgba(0,0,0,.4)}
+  #banner small{display:block;font:bold 18px Tahoma,sans-serif;letter-spacing:3px;margin-top:8px;text-shadow:0 0 10px var(--c),2px 2px 0 #000}
+  #banner.go{animation:ban 2.2s cubic-bezier(.2,1.3,.4,1) forwards}
+  @keyframes ban{0%{opacity:0;transform:scale(3.2) rotate(-6deg);filter:blur(10px)}
+    12%{opacity:1;transform:scale(1) rotate(0);filter:blur(0)}
+    80%{opacity:1;transform:scale(1.07)}
+    100%{opacity:0;transform:scale(.7) translateY(-80px);filter:blur(4px)}}
+  #overlay{position:absolute;left:0;right:0;bottom:120px;text-align:center;pointer-events:none;display:none}
+  #overlay .o1{font:italic 900 40px "Arial Black",Impact,sans-serif;color:#ffd23a;
+    text-shadow:0 0 12px #ff8a00,0 0 40px #ff5a00,3px 4px 0 #000}
+  #overlay .o2{margin-top:10px;font:bold 15px Tahoma;color:#fff;text-shadow:0 0 8px #0af,1px 1px 0 #000;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.25}}
+  #loading{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#8af;font:12px Tahoma;pointer-events:none;text-shadow:0 0 6px #04f}
+  /* ---------- Panneau ---------- */
+  #panel{width:265px;height:780px;background:radial-gradient(ellipse at 50% 0%,#1d2a6b 0%,#080c26 55%,#03040e 100%);
+    border-left:3px ridge #4a5aa8;color:#ff5a2a;display:flex;flex-direction:column;padding:14px 12px;gap:12px;flex:none;
+    font-family:"Lucida Console","Courier New",monospace}
+  .logo{text-align:center;padding:6px 0 2px}
+  .logo .l1{font:italic 900 34px/1 "Arial Black",Impact,sans-serif;letter-spacing:1px;
+    background:linear-gradient(#fff 0%,#c9d6ff 35%,#5d72c9 52%,#e5ecff 70%,#8ea0e8 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(2px 2px 0 #000) drop-shadow(0 0 6px rgba(80,120,255,.6))}
+  .logo .l2{font:italic bold 22px/1.2 "Times New Roman",serif;color:#ffcf3a;text-shadow:2px 2px 0 #7a2a00,0 0 8px rgba(255,160,0,.5);margin-top:4px}
+  .lcd{background:#0b0000;border:2px inset #333;padding:8px 10px;box-shadow:inset 0 0 12px #000}
+  .lcd .row{display:flex;justify-content:space-between;font-size:14px;color:#ff7040;margin-bottom:4px}
+  .lcd .row b{color:#ffb020}
+  .score{font:bold 30px/1.1 "Lucida Console","Courier New",monospace;color:#ff3b1e;text-align:right;text-shadow:0 0 6px #ff2a00;letter-spacing:1px;margin-top:4px}
+  .score.pop{animation:pop .25s}
+  @keyframes pop{50%{transform:scale(1.08);color:#fff36a}}
+  .msgbox{background:#020a10;border:2px inset #333;min-height:96px;padding:8px;color:#2cf3ff;font-size:13px;line-height:1.35;text-shadow:0 0 5px #0af}
+  #msg1{color:#fff36a;text-shadow:0 0 6px #fa0;min-height:18px;font-weight:bold}
+  #msg2{white-space:pre-line}
+  .ranks{display:grid;gap:2px;font-size:11px}
+  .ranks div{padding:2px 6px;color:#3d3d5c;border-left:4px solid #222}
+  .ranks div.on{color:#ffd23a;border-left-color:#ff9a00;text-shadow:0 0 5px #f80}
+  .ranks div.cur{background:linear-gradient(90deg,rgba(255,140,0,.35),transparent);color:#fff}
+  .hi{color:#8fa0ff;font-size:12px;text-align:center}
+  .keys{margin-top:auto;color:#6a77b8;font-size:10.5px;line-height:1.5;border-top:1px dashed #2a3266;padding-top:8px}
+  .keys b{color:#aab6ff}
+  /* ---------- Disposition verticale (petits écrans) : panneau sous la table ---------- */
+  #win.vert{width:608px}
+  #win.vert #client{flex-direction:column}
+  #win.vert #panel{width:600px;height:auto;border-left:0;border-top:3px ridge #4a5aa8;padding:10px 12px;
+    display:grid;grid-template-columns:190px 1fr 170px;grid-template-areas:"logo msg ranks" "lcd msg ranks" "lcd hi ranks";gap:8px 10px}
+  #win.vert .logo{grid-area:logo;padding:0}
+  #win.vert .logo .l1{font-size:25px}
+  #win.vert .logo .l2{font-size:17px;margin-top:2px}
+  #win.vert .lcd{grid-area:lcd;padding:6px 8px}
+  #win.vert .lcd .row{font-size:12px;margin-bottom:2px}
+  #win.vert .score{font-size:24px}
+  #win.vert .msgbox{grid-area:msg;min-height:0;font-size:12px}
+  #win.vert .ranks{grid-area:ranks;font-size:10px;gap:1px}
+  #win.vert .ranks div{padding:1px 5px}
+  #win.vert .hi{grid-area:hi;align-self:end;font-size:11px}
+  #win.vert .keys{display:none}
+  /* ---------- Barre des tâches ---------- */
+  #taskbar{position:fixed;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;z-index:20;
+    background:linear-gradient(#3168d5 0%,#4993e6 8%,#2157d7 40%,#2157d7 88%,#1941a5 100%)}
+  #start{height:30px;padding:0 18px 0 10px;display:flex;align-items:center;gap:5px;color:#fff;font:italic bold 18px Tahoma,sans-serif;
+    text-shadow:1px 1px 2px #000;border-radius:0 10px 10px 0;cursor:pointer;background:radial-gradient(ellipse at 40% 10%,#7ed36b,#3c9f2a 55%,#2f8a20)}
+  #task{margin-left:8px;height:24px;width:190px;display:flex;align-items:center;gap:6px;padding:0 8px;color:#fff;border-radius:3px;
+    background:#1e52b7;box-shadow:inset 1px 1px 2px #0c2c75;cursor:pointer;white-space:nowrap;overflow:hidden}
+  #task.min{background:#3c81f3;box-shadow:inset -1px -1px 2px #1a4fb8}
+  #tray{margin-left:auto;height:30px;display:flex;align-items:center;padding:0 14px;color:#fff;font-size:11px;
+    background:linear-gradient(#0c59b9,#139ee9 8%,#18b9ff 40%,#0f95e8 88%,#0d77d0);border-left:1px solid #092e8a}
+  /* ---------- Boîte de dialogue XP ---------- */
+  #dlg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30}
+  #dlg.show{display:flex}
+  .dwin{width:360px;max-width:92vw;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0;background:var(--xp-face);box-shadow:3px 4px 14px rgba(0,0,0,.5)}
+  .dwin .dt{height:26px;display:flex;align-items:center;padding:0 4px 0 8px;color:#fff;font-weight:bold;font-size:12px;margin:0 -3px;border-radius:7px 7px 0 0;
+    background:linear-gradient(#0997ff 0%,#0053ee 8%,#0050ee 40%,#06f 88%,#003dd7 100%);text-shadow:1px 1px #0f1089}
+  .dwin .dt span{flex:1}
+  .dwin .db{padding:14px 16px;font-size:11.5px;line-height:1.55}
+  .dwin .db table{border-collapse:collapse;width:100%}
+  .dwin .db td{padding:2px 4px;vertical-align:top}
+  .dwin .db td:first-child{font-weight:bold;white-space:nowrap}
+  .dwin .bf{text-align:right;padding:0 14px 12px}
+  .xbtn{min-width:75px;height:23px;font:11px Tahoma;border:1px solid #003c74;border-radius:3px;background:linear-gradient(#fff,#ece9d8 85%,#d6d0c5);cursor:pointer}
+  .xbtn:hover{box-shadow:inset 0 0 0 2px #f8b636}
+</style>
+</head>
+<body>
+
+<div id="win">
+  <div id="title">
+    <svg class="ico" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#1a1a5a" stroke="#9ab" /><path d="M8 2 L10.5 9 L8 8 L5.5 9 Z" fill="#ddd"/><path d="M6.5 9.5 L8 13 L9.5 9.5Z" fill="#f80"/></svg>
+    <span class="t">3D Pinball pour Windows - Space Cadet</span>
+    <div class="tb" id="bMin" title="Réduire">_</div>
+    <div class="tb" id="bMax" title="Plein écran">□</div>
+    <div class="tb close" id="bClose" title="Fermer">✕</div>
+  </div>
+  <div id="menu">
+    <div class="mi">Jeu
+      <div class="dd">
+        <div data-a="new">Nouvelle partie<span>F2</span></div>
+        <div data-a="pause">Lancer / Interrompre<span>F3</span></div>
+        <hr>
+        <div data-a="high">Meilleurs scores...</div>
+        <hr>
+        <div data-a="close">Quitter</div>
+      </div>
+    </div>
+    <div class="mi">Options
+      <div class="dd">
+        <div data-a="sound" id="optSound" class="chk">Effets sonores</div>
+        <div data-a="music" id="optMusic">Musique</div>
+        <hr>
+        <div data-a="v2d" id="optV2d">Affichage 2D (classique)</div>
+        <div data-a="v3d" id="optV3d" class="chk">Affichage 3D<span>F6</span></div>
+        <hr>
+        <div data-a="cam" id="optCam" class="chk">Caméra dynamique</div>
+        <div data-a="fx" id="optFx" class="chk">Effets spectaculaires</div>
+        <hr>
+        <div data-a="full">Plein écran<span>F4</span></div>
+      </div>
+    </div>
+    <div class="mi">?
+      <div class="dd">
+        <div data-a="help">Commandes du jeu<span>F1</span></div>
+        <div data-a="about">À propos de Pinball</div>
+      </div>
+    </div>
+  </div>
+  <div id="client">
+    <div id="stage">
+      <canvas id="table" width="420" height="780"></canvas>
+      <canvas id="gl"></canvas>
+      <div id="flash"></div>
+      <div id="banner"></div>
+      <div id="overlay"><div class="o1"></div><div class="o2"></div></div>
+      <div id="loading">Chargement du moteur 3D…</div>
+    </div>
+    <div id="panel">
+      <div class="logo"><div class="l1">3D Pinball</div><div class="l2">Space Cadet</div></div>
+      <div class="lcd">
+        <div class="row"><span>BILLE</span><b id="ball">-</b></div>
+        <div class="row"><span>JOUEUR</span><b>1</b></div>
+        <div class="score" id="score">0</div>
+      </div>
+      <div class="msgbox"><div id="msg1"></div><div id="msg2"></div></div>
+      <div class="ranks" id="ranks"></div>
+      <div class="hi">RECORD : <span id="hi">0</span></div>
+      <div class="keys">
+        <b>Z</b> / <b>Maj G</b> / <b>←</b> : flipper gauche<br>
+        <b>/</b> / <b>Maj D</b> / <b>→</b> : flipper droit<br>
+        <b>Espace</b> (maintenir) : lanceur<br>
+        <b>X</b> <b>.</b> <b>↑</b> : secouer la table<br>
+        <b>F2</b> nouvelle partie · <b>F3</b> pause
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="taskbar">
+  <div id="start"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M2 4 Q6 2 9.4 4 L8.6 9.3 Q5.3 7.5 1.3 9.3Z" fill="#f65314"/><path d="M10.4 4.3 Q14 2.3 18.7 4 L17.9 9.3 Q13.8 7.6 9.6 9.5Z" fill="#7cbb00"/><path d="M1.2 10.3 Q5 8.5 8.5 10.3 L7.7 15.6 Q4.3 13.9 .4 15.6Z" fill="#00a1f1"/><path d="M9.5 10.5 Q13.6 8.6 17.8 10.3 L17 15.6 Q13 14 8.7 15.8Z" fill="#ffbb00"/></svg>démarrer</div>
+  <div id="task">◉ 3D Pinball - Space Cadet</div>
+  <div id="tray"><span id="clock"></span></div>
+</div>
+
+<div id="dlg"><div class="dwin"><div class="dt"><span id="dlgT"></span><div class="tb close" id="dlgX" style="width:19px;height:19px;font-size:11px">✕</div></div>
+  <div class="db" id="dlgB"></div><div class="bf"><button class="xbtn" id="dlgOk">OK</button></div></div></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   3D Pinball – Space Cadet (recréation hommage)
+   Logique + physique 2D (plan de la table) ; rendu 3D Three.js plus bas,
+   avec repli automatique sur un rendu Canvas 2D.
+   ===================================================================== */
+const TW = 420, TH = 780, R = 8, GRAV = 1150, MAXV = 2300, DT = 1 / 480;
+const STW = 600, STH = 780;
+const cv = document.getElementById('table'), ctx = cv.getContext('2d');
+const st = document.createElement('canvas'), sctx = st.getContext('2d');
+let K = 1;
+
+/* ---------------- Géométrie de la table ---------------- */
+const walls = [];
+function wall(x1, y1, x2, y2, o) { const s = Object.assign({ x1, y1, x2, y2, e: .45, r: 2, on: true, kind: 'wall' }, o); walls.push(s); return s; }
+const MX = x => 392 - x;              // miroir autour de l'axe central (x = 196)
+function both(x1, y1, x2, y2, o) { wall(x1, y1, x2, y2, o); wall(MX(x1), y1, MX(x2), y2, o); }
+
+const ARC = [];
+for (let i = 0; i <= 48; i++) { const a = Math.PI + Math.PI * i / 48; ARC.push([210 + 190 * Math.cos(a), 200 + 190 * Math.sin(a)]); }
+for (let i = 0; i < 48; i++) wall(ARC[i][0], ARC[i][1], ARC[i + 1][0], ARC[i + 1][1], { kind: 'arc', e: .3 });
+wall(20, 200, 20, 810, { kind: 'outer' }); wall(400, 200, 400, 810, { kind: 'outer' }); wall(372, 255, 372, 810, { kind: 'lanewall' });
+const gate = wall(372, 255, 400, 226, { kind: 'gate', e: .3 });
+const plunger = wall(372, 722, 400, 722, { kind: 'plunger', e: .05 });
+both(50, 470, 50, 585, { kind: 'rail' }); both(50, 585, 126, 664, { kind: 'rail' });
+// Déflecteurs latéraux : renvoient la bille qui descend le long des murs vers le centre
+wall(20, 385, 46, 440, { kind: 'rail', e: .55 }); wall(372, 395, 346, 450, { kind: 'rail', e: .55 });
+both(82, 500, 82, 575, { kind: 'slingside' }); both(82, 575, 118, 611, { kind: 'slingside' });
+const slings = [wall(118, 611, 82, 500, { kind: 'sling', e: .5, fl: 0 }), wall(MX(118), 611, MX(82), 500, { kind: 'sling', e: .5, fl: 0 })];
+const posts = [125, 170, 215, 260].map(x => wall(x, 72, x, 108, { kind: 'post', r: 3 }));
+const drops = [0, 1, 2].map(i => wall(95, 290 + i * 25, 95, 312 + i * 25, { kind: 'drop', r: 3, e: .3, idx: i, cd: 0 }));
+const fuels = [0, 1, 2].map(i => wall(368, 300 + i * 28, 368, 322 + i * 28, { kind: 'fuel', r: 2, e: .3, idx: i, cd: 0 }));
+
+const bumpers = [{ x: 165, y: 235 }, { x: 245, y: 235 }, { x: 205, y: 305 }].map(b => Object.assign(b, { r: 20, fl: 0 }));
+const hole = { x: 300, y: 430, r: 13 };
+const lanesPos = [147, 192, 237];
+const multPos = [151, 181, 211, 241];
+const rankPos = Array.from({ length: 9 }, (_, i) => i < 5 ? [150 + i * 23, 560] : [161 + (i - 5) * 23, 578]);
+
+const flL = { x: 128, y: 672, len: 60, a: .52, rest: .52, up: -.45, w: 0 };
+const flR = { x: 264, y: 672, len: 60, a: Math.PI - .52, rest: Math.PI - .52, up: Math.PI + .45, w: 0 };
+
+/* ---------------- État du jeu ---------------- */
+const RANKS = ['Cadet', 'Enseigne', 'Lieutenant', 'Capitaine', 'Lieutenant-Commandant', 'Commandant', 'Commodore', 'Amiral', 'Amiral de la Flotte'];
+const MISSIONS = [
+  { name: 'Lancement', desc: 'Touchez les bumpers', ev: 'bumper', n: 8 },
+  { name: 'Entraînement au tir', desc: 'Abattez les cibles', ev: 'drop', n: 3 },
+  { name: 'Ravitaillement', desc: 'Touchez les cibles carburant', ev: 'fuel', n: 3 },
+  { name: 'Trou noir', desc: 'Entrez dans le trou noir', ev: 'hole', n: 1 },
+  { name: 'Hyperespace', desc: 'Faites des orbites', ev: 'orbit', n: 2 },
+  { name: 'Reconnaissance', desc: 'Allumez les couloirs du haut', ev: 'lane', n: 3 },
+];
+let HIGH = 0; try { HIGH = +localStorage.getItem('pinballXP.high') || 0; } catch (e) { }
+
+const G = {
+  state: 'attract', paused: false, score: 0, ball: 1, extra: 0, mult: 1, rank: 0,
+  mIdx: 0, prog: 0, need: 1, done: 0, tilt: false, tiltMeter: 0, save: 0, saveArmed: false,
+  bonusHits: 0, lanes: [0, 0, 0], fuel: [0, 0, 0], charge: 0, charging: false, t: 0, shake: 0, shakeX: 0, shakeY: 0, orbitFlash: 0,
+};
+const ball = { x: 386, y: 712, vx: 0, vy: 0, inLane: true, fromLane: true, cap: 0, capCd: 0, live: false, sens: {} };
+const keys = { left: false, right: false };
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true };
+try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; } catch (e) { }
+
+/* Effets visuels : relayés au moteur 3D s'il est chargé */
+function fx(type, a, b, c) { if (window.FX3D && OPT.fx && OPT.view3d) window.FX3D(type, a, b, c); }
+function banner(text, color = '#38e0ff', sub = '') {
+  if (!OPT.fx) return;
+  const el = document.getElementById('banner');
+  el.style.setProperty('--c', color); el.innerHTML = text + (sub ? `<small>${sub}</small>` : '');
+  el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+}
+function flash(color = 'rgba(255,255,255,.8)') {
+  if (!OPT.fx) return;
+  const el = document.getElementById('flash');
+  el.style.background = `radial-gradient(circle at 50% 50%, ${color}, transparent 75%)`;
+  el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+}
+
+/* ---------------- Minuteries (sensibles à la pause) ---------------- */
+let timers = [];
+function later(t, fn) { timers.push({ t, fn }); }
+function runTimers(dt) {
+  const due = [];
+  timers = timers.filter(o => { o.t -= dt; if (o.t <= 0) { due.push(o.fn); return false; } return true; });
+  due.forEach(f => f());
+}
+
+/* ---------------- Son (WebAudio synthétisé) ---------------- */
+let actx = null, noiseBuf = null;
+function audio() {
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    noiseBuf = actx.createBuffer(1, actx.sampleRate * .2, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function tone(f, d = .08, type = 'square', v = .12, f2, delay = 0) {
+  if (!OPT.sound) return; const a = audio(); if (!a) return;
+  const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0008, t + d);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + d + .03);
+}
+function noise(d = .05, v = .2, freq = 1800) {
+  if (!OPT.sound) return; const a = audio(); if (!a) return;
+  const t = a.currentTime, s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+  s.connect(f).connect(g).connect(a.destination); s.start(t); s.stop(t + d + .02);
+}
+const SFX = {
+  flip: () => noise(.06, .35, 900),
+  bump: () => { tone(880, .09, 'square', .1, 330); tone(1320, .05, 'triangle', .06); },
+  sling: () => { tone(520, .07, 'sawtooth', .08, 200); noise(.04, .2, 2500); },
+  drop: () => tone(300, .15, 'square', .1, 90),
+  fuel: () => { tone(660, .06, 'square', .08); tone(990, .08, 'square', .08, null, .06); },
+  lane: () => tone(1500, .1, 'sine', .12, 2200),
+  wall: v => noise(.03, Math.min(.15, v / 4000), 600),
+  launch: p => { noise(.25, .25, 500); tone(120, .3, 'sawtooth', .08 * p + .03, 600); },
+  hole: () => { tone(400, .8, 'sine', .15, 40); tone(200, .8, 'triangle', .1, 30); },
+  eject: () => { noise(.12, .3, 400); tone(90, .2, 'square', .12, 600); },
+  drain: () => { [600, 450, 330, 220].forEach((f, i) => tone(f, .18, 'triangle', .14, f * .8, i * .14)); },
+  rank: () => { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .18, 'square', .09, null, i * .09)); },
+  big: () => { [784, 988, 1175, 1568].forEach((f, i) => tone(f, .14, 'square', .08, null, i * .07)); },
+  hyper: () => { tone(200, .6, 'sawtooth', .07, 2400); tone(300, .6, 'square', .04, 3200, .05); },
+  tilt: () => tone(80, .9, 'sawtooth', .18, 50),
+  start: () => { [392, 523, 659, 784, 659, 784].forEach((f, i) => tone(f, .14, 'square', .08, null, i * .1)); },
+};
+let musicStep = 0;
+const SEQ = [110, 0, 165, 0, 147, 0, 131, 0, 110, 0, 165, 196, 147, 0, 131, 123];
+function musicTick() {
+  if (!OPT.music || G.paused || G.state !== 'play') return;
+  const f = SEQ[musicStep++ % SEQ.length]; if (f) tone(f, .22, 'triangle', .05);
+}
+
+/* ---------------- Interface (panneau) ---------------- */
+const $ = id => document.getElementById(id);
+let msgT = 0, lastScore = -1;
+function msg(text, sub, dur = 2.5) { $('msg1').textContent = text; if (sub !== undefined) $('msg2').textContent = sub; msgT = dur; }
+function missionText() {
+  const m = MISSIONS[G.mIdx % MISSIONS.length];
+  return `MISSION : ${m.name}\n${m.desc} (${Math.min(G.prog, G.need)}/${G.need})`;
+}
+function idleText() {
+  if (G.state === 'play') { $('msg1').textContent = G.tilt ? 'TILT !' : RANKS[G.rank].toUpperCase(); $('msg2').textContent = missionText(); }
+}
+function drawRanks() {
+  $('ranks').innerHTML = RANKS.map((r, i) => `<div class="${i <= G.rank && G.state !== 'attract' ? 'on' : ''} ${i === G.rank && G.state !== 'attract' ? 'cur' : ''}">${r}</div>`).join('');
+}
+function fmt(n) { return n.toLocaleString('fr-FR').replace(/ | /g, ' '); }
+let ovKey = '';
+function updPanel() {
+  if (G.score !== lastScore) {
+    const el = $('score'); el.textContent = fmt(G.score);
+    if (G.score - lastScore >= 5000) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    lastScore = G.score;
+  }
+  $('ball').textContent = G.state === 'attract' ? '-' : G.ball;
+  $('hi').textContent = fmt(Math.max(HIGH, G.score));
+  const k = G.paused ? 'p' : G.state;
+  if (k !== ovKey) {
+    ovKey = k; const ov = $('overlay');
+    ov.style.display = k === 'play' ? 'none' : 'block';
+    ov.querySelector('.o1').textContent = k === 'p' ? 'PAUSE' : k === 'over' ? 'PARTIE TERMINÉE' : '3D PINBALL';
+    ov.querySelector('.o2').textContent = k === 'p' ? 'F3 pour reprendre' : 'Appuyez sur F2 ou Espace (ou touchez la table)';
+  }
+}
+
+/* ---------------- Logique du jeu ---------------- */
+function add(p) { if (G.state === 'play' && !G.tilt) G.score += p; }
+function newGame() {
+  audio();
+  Object.assign(G, { state: 'play', paused: false, score: 0, ball: 1, extra: 0, mult: 1, rank: 0, mIdx: 0, prog: 0, done: 0, tilt: false, tiltMeter: 0 });
+  timers = [];
+  setMission(); drawRanks(); serve();
+  SFX.start(); fx('start');
+  banner('BIENVENUE, CADET', '#38e0ff', 'MISSION : ' + MISSIONS[0].name.toUpperCase());
+  msg('BIENVENUE, CADET', missionText(), 3);
+}
+function setMission() {
+  const m = MISSIONS[G.mIdx % MISSIONS.length];
+  G.need = m.n * (1 + Math.floor(G.mIdx / MISSIONS.length)); G.prog = 0;
+}
+function resetBall() { Object.assign(ball, { x: 386, y: 712, vx: 0, vy: 0, inLane: true, fromLane: true, cap: 0, capCd: 0, live: true, sens: {} }); }
+function serve() {
+  resetBall();
+  G.mult = 1; G.lanes = [0, 0, 0]; G.fuel = [0, 0, 0]; G.tilt = false; G.tiltMeter = 0; G.save = 0; G.saveArmed = false; G.bonusHits = 0;
+  drops.forEach(d => d.on = true);
+}
+function ev(name, n = 1) {
+  if (G.state !== 'play' || G.tilt) return;
+  const m = MISSIONS[G.mIdx % MISSIONS.length];
+  if (m.ev !== name) return;
+  G.prog += n;
+  if (G.prog >= G.need) {
+    const pts = 50000 * (G.rank + 1); add(pts); G.done++;
+    msg('MISSION ACCOMPLIE !', `${m.name} : +${fmt(pts)}`, 3);
+    later(.25, () => { banner('MISSION ACCOMPLIE', '#3cff6a', '+' + fmt(pts)); flash('rgba(120,255,160,.7)'); fx('mission'); });
+    if (G.rank < RANKS.length - 1) {
+      G.rank++;
+      later(2.4, () => { msg('PROMOTION !', RANKS[G.rank], 3); SFX.rank(); banner('PROMOTION', '#ff5ad2', RANKS[G.rank].toUpperCase()); fx('rank'); });
+    }
+    if (G.done % 3 === 0) { G.extra++; later(4.6, () => { msg('BILLE SUPPLÉMENTAIRE !', '', 2.5); banner('BILLE EN PLUS', '#3cff6a'); }); }
+    SFX.big(); G.mIdx++; setMission(); drawRanks();
+  } else if (msgT <= 0) idleText();
+}
+function launched() { if (!G.saveArmed) { G.saveArmed = true; G.save = 8; } }
+function drain() {
+  ball.live = false;
+  if (G.state !== 'play') return;
+  if (G.save > 0 && !G.tilt) {
+    G.save = 0; msg('RE-DÉPLOIEMENT', 'Bille sauvée !', 2); SFX.lane(); banner('BILLE SAUVÉE', '#3cff6a', 'RE-DÉPLOIEMENT');
+    later(1.2, resetBall);
+    return;
+  }
+  SFX.drain(); fx('drain'); flash('rgba(255,40,20,.7)');
+  const bonus = G.tilt ? 0 : (G.bonusHits * 250 + G.done * 1000 + 5000) * G.mult;
+  later(1, () => { G.score += bonus; msg('BONUS DE FIN DE BILLE', `${fmt(bonus)} ×${G.mult}`, 2.2); banner('BONUS', '#ffd23a', fmt(bonus) + '  ×' + G.mult); });
+  later(3.2, () => {
+    if (G.extra > 0) { G.extra--; msg('REJOUEZ !', missionText(), 2); banner('REJOUEZ !', '#3cff6a'); serve(); }
+    else if (G.ball < 3) { G.ball++; msg(`BILLE ${G.ball}`, missionText(), 2); banner('BILLE ' + G.ball, '#38e0ff'); serve(); }
+    else gameOver();
+  });
+}
+function gameOver() {
+  G.state = 'over';
+  let rec = false;
+  if (G.score > HIGH) { HIGH = G.score; rec = true; try { localStorage.setItem('pinballXP.high', HIGH); } catch (e) { } }
+  msg('PARTIE TERMINÉE', rec ? 'NOUVEAU RECORD !\nF2 pour rejouer' : 'F2 ou Espace pour rejouer', 9999);
+  if (rec) { banner('NOUVEAU RECORD', '#ffd23a', fmt(G.score)); fx('mission'); }
+  SFX.drain();
+}
+function nudge(dx, dy) {
+  if (G.state !== 'play' || G.paused) return;
+  G.shake = .15; G.shakeX = dx * 4; G.shakeY = dy * 4;
+  if (ball.live && !ball.cap && !ball.inLane && !G.tilt) { ball.vx += dx * 70; ball.vy += dy * 90; }
+  noise(.08, .3, 200); fx('nudge', dx, dy);
+  G.tiltMeter += 1;
+  if (G.tiltMeter > 3.2 && !G.tilt) {
+    G.tilt = true; G.save = 0; SFX.tilt(); msg('TILT !', 'Flippers désactivés', 9999);
+    banner('TILT', '#ff2a2a'); flash('rgba(255,0,0,.8)'); fx('tilt');
+  }
+}
+
+/* ---------------- Physique ---------------- */
+function closest(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+  let t = ((px - x1) * dx + (py - y1) * dy) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return [x1 + t * dx, y1 + t * dy, t];
+}
+function hitSeg(s) {
+  const [cx, cy] = closest(ball.x, ball.y, s.x1, s.y1, s.x2, s.y2);
+  let nx = ball.x - cx, ny = ball.y - cy; const d = Math.hypot(nx, ny), rr = R + s.r;
+  if (d >= rr || d === 0) return;
+  nx /= d; ny /= d; ball.x = cx + nx * rr; ball.y = cy + ny * rr;
+  const vn = ball.vx * nx + ball.vy * ny;
+  if (vn >= 0) return;
+  ball.vx -= (1 + s.e) * vn * nx; ball.vy -= (1 + s.e) * vn * ny;
+  onHit(s, -vn, nx, ny, cx, cy);
+}
+function onHit(s, v, nx, ny, cx, cy) {
+  switch (s.kind) {
+    case 'sling':
+      if (v > 50) { ball.vx += nx * 430; ball.vy += ny * 430; s.fl = .12; add(100); G.bonusHits++; SFX.sling(); fx('sling', cx, cy); }
+      break;
+    case 'drop':
+      if (!G.tilt) {
+        s.on = false; add(1500); G.bonusHits++; SFX.drop(); ev('drop'); fx('drop', cx, cy);
+        if (drops.every(d => !d.on)) {
+          add(25000); msg('CIBLES ABATTUES !', '+25 000', 2); SFX.big(); banner('CIBLES ABATTUES', '#ffd23a', '+25 000');
+          const reset = () => { if (ball.x > 70 && ball.x < 125 && ball.y > 270 && ball.y < 385) later(.5, reset); else drops.forEach(d => d.on = true); };
+          later(1.5, reset);
+        }
+      }
+      break;
+    case 'fuel':
+      if (v > 40 && s.cd <= 0) {
+        s.cd = .25; G.bonusHits++; fx('fuel', cx, cy);
+        if (!G.fuel[s.idx]) { G.fuel[s.idx] = 1; add(2000); SFX.fuel(); ev('fuel'); }
+        else { add(500); tone(500, .05); }
+        if (G.fuel.every(f => f)) { add(15000); msg('PLEIN DE CARBURANT !', '+15 000', 2); SFX.big(); banner('PLEIN DE CARBURANT', '#ff9a1a', '+15 000'); later(1, () => G.fuel = [0, 0, 0]); }
+      }
+      break;
+    default:
+      if (v > 220) { SFX.wall(v); if (v > 700) fx('spark', cx, cy, v); }
+  }
+}
+function hitFlipper(f) {
+  const tx = f.x + Math.cos(f.a) * f.len, ty = f.y + Math.sin(f.a) * f.len;
+  const [cx, cy, t] = closest(ball.x, ball.y, f.x, f.y, tx, ty);
+  const rad = 8.5 - 3.5 * t;
+  let nx = ball.x - cx, ny = ball.y - cy; const d = Math.hypot(nx, ny), rr = R + rad;
+  if (d >= rr || d === 0) return;
+  nx /= d; ny /= d; ball.x = cx + nx * rr; ball.y = cy + ny * rr;
+  const rx = cx - f.x, ry = cy - f.y, fvx = -f.w * ry, fvy = f.w * rx;
+  const vn = (ball.vx - fvx) * nx + (ball.vy - fvy) * ny;
+  if (vn < 0) { ball.vx -= 1.32 * vn * nx; ball.vy -= 1.32 * vn * ny; if (vn < -900) fx('spark', cx, cy, -vn); }
+}
+function hitBumper(b, i) {
+  let nx = ball.x - b.x, ny = ball.y - b.y; const d = Math.hypot(nx, ny), rr = R + b.r;
+  if (d >= rr || d === 0) return;
+  nx /= d; ny /= d; ball.x = b.x + nx * rr; ball.y = b.y + ny * rr;
+  const vn = ball.vx * nx + ball.vy * ny;
+  if (vn < 0) { ball.vx -= 1.6 * vn * nx; ball.vy -= 1.6 * vn * ny; }
+  ball.vx += nx * 320; ball.vy += ny * 320;
+  b.fl = .15; add(500); G.bonusHits++; SFX.bump(); ev('bumper');
+  fx('bump', b.x - nx * b.r, b.y - ny * b.r, i);
+}
+function updFlipper(f, pressed, dt) {
+  const target = pressed ? f.up : f.rest, prev = f.a, dir = Math.sign(target - f.a);
+  f.a += dir * (pressed ? 26 : 15) * dt;
+  if ((dir > 0 && f.a > target) || (dir < 0 && f.a < target)) f.a = target;
+  f.w = (f.a - prev) / dt;
+}
+function sensor(id, inside, fn) { if (inside) { if (!ball.sens[id]) { ball.sens[id] = 1; fn(); } } else ball.sens[id] = 0; }
+
+function step(dt) {
+  const canFlip = G.state === 'play' && !G.tilt;
+  updFlipper(flL, keys.left && canFlip, dt);
+  updFlipper(flR, keys.right && canFlip, dt);
+  drops.forEach(d => d.cd > 0 && (d.cd -= dt)); fuels.forEach(d => d.cd > 0 && (d.cd -= dt));
+  if (!ball.live) return;
+  if (ball.cap > 0) {
+    ball.cap -= dt;
+    if (ball.cap <= 0) { ball.vx = -430 + Math.random() * 60; ball.vy = -140; ball.capCd = .7; SFX.eject(); fx('eject'); }
+    return;
+  }
+  if (ball.capCd > 0) ball.capCd -= dt;
+
+  ball.vy += GRAV * dt;
+  ball.vx *= .99986; ball.vy *= .99986;
+  const sp = Math.hypot(ball.vx, ball.vy); if (sp > MAXV) { ball.vx *= MAXV / sp; ball.vy *= MAXV / sp; }
+  ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+
+  gate.on = !ball.inLane;
+  for (const s of walls) if (s.on) hitSeg(s);
+  bumpers.forEach(hitBumper);
+  hitFlipper(flL); hitFlipper(flR);
+
+  if (ball.inLane && ball.x < 366) { ball.inLane = false; launched(); }
+  lanesPos.forEach((lx, i) => sensor('lane' + i, Math.abs(ball.x - lx) < 18 && Math.abs(ball.y - 95) < 12, () => {
+    if (G.tilt) return;
+    fx('lane', lx, 95);
+    if (!G.lanes[i]) { G.lanes[i] = 1; add(1000); SFX.lane(); ev('lane'); } else { add(500); tone(900, .05, 'sine'); }
+    if (G.lanes.every(l => l)) {
+      if (G.mult < 5) G.mult++;
+      add(10000); msg(`MULTIPLICATEUR ×${G.mult}`, '+10 000', 2); SFX.big(); banner('MULTIPLICATEUR ×' + G.mult, '#ffd400', '+10 000');
+      later(.8, () => G.lanes = [0, 0, 0]);
+    }
+  }));
+  const orbit = () => {
+    if (ball.fromLane) { ball.fromLane = false; add(2500); msg('LANCEMENT RÉUSSI', '+2 500', 1.5); return; }
+    if (G.tilt) return; add(5000); msg('HYPERESPACE !', '+5 000', 1.5); SFX.hyper(); ev('orbit');
+    G.orbitFlash = 1.2; banner('HYPERESPACE', '#38e0ff', '+5 000'); fx('orbit');
+  };
+  sensor('orbL', ball.x < 52 && ball.y > 170 && ball.y < 250 && ball.vy > 150, orbit);
+  sensor('orbR', ball.x > 340 && ball.x < 372 && ball.y > 200 && ball.y < 260 && ball.vy > 150, orbit);
+  if (ball.y > 300 && !ball.inLane) ball.fromLane = false;
+  if (ball.capCd <= 0 && Math.hypot(ball.x - hole.x, ball.y - hole.y) < 12) {
+    ball.cap = 1.3; ball.x = hole.x; ball.y = hole.y; ball.vx = ball.vy = 0;
+    if (!G.tilt) { add(10000); msg('TROU NOIR', '+10 000', 1.6); ev('hole'); G.bonusHits += 3; banner('TROU NOIR', '#c45cff', '+10 000'); }
+    SFX.hole(); fx('hole');
+  }
+  if (ball.y > 805) drain();
+}
+
+/* ---------------- Décor de la table (sert aussi de texture 3D) ---------------- */
+let seed = 42; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function wallPath(c, s) { c.moveTo(s.x1, s.y1); c.lineTo(s.x2, s.y2); }
+function arrow(c, x, y, a, col) {
+  c.save(); c.translate(x, y); c.rotate(a); c.globalAlpha = .55; c.fillStyle = col;
+  c.beginPath(); c.moveTo(14, 0); c.lineTo(-6, -9); c.lineTo(-2, 0); c.lineTo(-6, 9); c.closePath(); c.fill(); c.restore();
+}
+function drawArt(c, full) {
+  let g = c.createLinearGradient(0, 0, 0, TH); g.addColorStop(0, '#060b2e'); g.addColorStop(.5, '#0d0830'); g.addColorStop(1, '#03030f');
+  c.fillStyle = g; c.fillRect(0, 0, TW, TH);
+  [[90, 180, 190, 'rgba(120,40,160,.35)'], [330, 380, 170, 'rgba(30,90,200,.3)'], [180, 600, 200, 'rgba(160,30,90,.22)']].forEach(([x, y, r, col]) => {
+    const rg = c.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = rg; c.fillRect(0, 0, TW, TH);
+  });
+  seed = 42;
+  for (let i = 0; i < 260; i++) { const x = rnd() * TW, y = rnd() * TH, s = rnd(); c.fillStyle = `rgba(255,255,255,${.25 + s * .7})`; c.fillRect(x, y, s > .93 ? 2 : 1, s > .93 ? 2 : 1); }
+  // Planète et anneaux
+  c.save(); c.globalAlpha = .55;
+  g = c.createRadialGradient(170, 500, 10, 196, 530, 95); g.addColorStop(0, '#6fa8ff'); g.addColorStop(.6, '#2b3f9e'); g.addColorStop(1, '#0b0f3a');
+  c.fillStyle = g; c.beginPath(); c.arc(196, 530, 90, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = 'rgba(255,200,120,.7)'; c.lineWidth = 4; c.beginPath(); c.ellipse(196, 530, 140, 26, -.2, 0, Math.PI * 2); c.stroke();
+  c.restore();
+  // Fusée stylisée
+  c.save(); c.translate(196, 405); c.globalAlpha = .5;
+  c.fillStyle = '#c9d2e8'; c.beginPath(); c.moveTo(0, -60); c.quadraticCurveTo(22, -20, 16, 30); c.lineTo(-16, 30); c.quadraticCurveTo(-22, -20, 0, -60); c.fill();
+  c.fillStyle = '#d23a2a'; c.beginPath(); c.moveTo(-16, 10); c.lineTo(-30, 40); c.lineTo(-14, 30); c.fill(); c.beginPath(); c.moveTo(16, 10); c.lineTo(30, 40); c.lineTo(14, 30); c.fill();
+  c.fillStyle = '#3aa0ff'; c.beginPath(); c.arc(0, -18, 7, 0, Math.PI * 2); c.fill();
+  c.restore();
+  // Textes
+  c.save(); c.textAlign = 'center'; c.font = 'italic 900 22px "Arial Black",Impact,sans-serif';
+  c.fillStyle = 'rgba(255,210,60,.18)'; c.fillText('SPACE CADET', 196, 715);
+  c.font = 'bold 9px Tahoma'; c.fillStyle = 'rgba(200,220,255,.6)';
+  c.fillText('TROU NOIR', hole.x, hole.y + 32);
+  c.save(); c.translate(124, 326); c.rotate(-Math.PI / 2); c.fillText('CIBLES', 0, 0); c.restore();
+  c.save(); c.translate(334, 342); c.rotate(Math.PI / 2); c.fillText('CARBURANT', 0, 0); c.restore();
+  c.fillText('SAUVETAGE', 196, 648);
+  c.fillText('GRADE', 196, 596);
+  c.font = 'bold 8px Tahoma'; c.fillStyle = 'rgba(255,230,120,.75)';
+  multPos.forEach((x, i) => c.fillText('×' + (i + 2), x, 500));
+  c.restore();
+  arrow(c, 40, 280, -Math.PI / 2, '#38e0ff'); arrow(c, 352, 280, -Math.PI / 2, '#38e0ff');
+  arrow(c, 245, 400, -2.2, '#ff7a2a');
+  // Cercles des inserts lumineux
+  c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.5;
+  const ring = (x, y, r) => { c.beginPath(); c.arc(x, y, r + 3, 0, Math.PI * 2); c.stroke(); };
+  lanesPos.forEach(x => ring(x, 95, 6)); multPos.forEach(x => ring(x, 480, 9)); rankPos.forEach(([x, y]) => ring(x, y, 4.5));
+  c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(372, 230, 28, 580);
+  if (!full) return;
+  [[82, 500, 82, 575, 118, 611], [MX(82), 500, MX(82), 575, MX(118), 611]].forEach(p => {
+    const gr = c.createLinearGradient(p[0], p[1], p[4], p[5]); gr.addColorStop(0, '#ffcc33'); gr.addColorStop(1, '#d6441c');
+    c.fillStyle = gr; c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(p[2], p[3]); c.lineTo(p[4], p[5]); c.closePath(); c.fill();
+  });
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  for (const [w, col] of [[7, '#1a1d2b'], [4.5, '#8f9ab5'], [2, '#e8eef9']]) {
+    c.strokeStyle = col;
+    for (const s of walls) {
+      if (s.kind === 'drop' || s.kind === 'fuel' || s.kind === 'plunger') continue;
+      c.lineWidth = w + (s.r - 2) * 2 - (s.kind === 'gate' ? 3 : 0);
+      c.beginPath(); wallPath(c, s); c.stroke();
+    }
+  }
+  c.strokeStyle = '#f4f4f4'; c.lineWidth = 4; slings.forEach(s => { c.beginPath(); wallPath(c, s); c.stroke(); });
+  [flL, flR].forEach(f => { c.fillStyle = '#222'; c.beginPath(); c.arc(f.x, f.y, 11, 0, Math.PI * 2); c.fill(); });
+  c.strokeStyle = '#000'; c.lineWidth = 3; c.strokeRect(0, 0, TW, TH);
+}
+function buildStatic() { st.width = TW * K; st.height = TH * K; sctx.setTransform(K, 0, 0, K, 0, 0); drawArt(sctx, true); }
+
+/* ---------------- Rendu 2D de secours ---------------- */
+function light(x, y, on, col, r = 6) {
+  ctx.save();
+  if (on) { ctx.shadowColor = col; ctx.shadowBlur = 12; }
+  const g = ctx.createRadialGradient(x - r * .3, y - r * .3, 1, x, y, r);
+  g.addColorStop(0, on ? '#fff' : 'rgba(255,255,255,.25)'); g.addColorStop(.4, on ? col : 'rgba(80,80,100,.6)'); g.addColorStop(1, on ? col : 'rgba(20,20,40,.8)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function flipPath(L) { ctx.beginPath(); ctx.arc(0, 0, 8.5, Math.PI / 2, Math.PI * 1.5); ctx.lineTo(L, -5); ctx.arc(L, 0, 5, -Math.PI / 2, Math.PI / 2); ctx.closePath(); }
+function render2D() {
+  ctx.setTransform(K, 0, 0, K, 0, 0);
+  let ox = 0, oy = 0; if (G.shake > 0) { ox = G.shakeX * G.shake / .15; oy = G.shakeY * G.shake / .15; }
+  ctx.translate(ox, oy);
+  ctx.drawImage(st, 0, 0, TW, TH);
+  const blink = (Math.floor(G.t * 4) % 2) === 0;
+  lanesPos.forEach((x, i) => light(x, 95, G.lanes[i], '#38e0ff', 6));
+  multPos.forEach((x, i) => light(x, 480, G.mult >= i + 2, '#ffd400', 9));
+  drops.forEach((d, i) => light(116, 301 + i * 25, !d.on, '#ff3b3b', 5));
+  fuels.forEach((f, i) => light(348, 311 + i * 28, G.fuel[i], '#ff9a1a', 5));
+  light(196, 632, G.save > 0 && (G.save > 2 || blink), '#3cff6a', 7);
+  rankPos.forEach(([x, y], i) => light(x, y, G.state !== 'attract' && i <= G.rank, '#ff5ad2', 4.5));
+  // trou noir
+  const hg = ctx.createRadialGradient(hole.x, hole.y, 2, hole.x, hole.y, 26);
+  hg.addColorStop(0, '#000'); hg.addColorStop(.45, '#14002a'); hg.addColorStop(.75, 'rgba(140,40,255,.55)'); hg.addColorStop(1, 'rgba(140,40,255,0)');
+  ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(hole.x, hole.y, 26, 0, Math.PI * 2); ctx.fill();
+  // bumpers
+  bumpers.forEach(b => {
+    const on = b.fl > 0;
+    ctx.fillStyle = on ? '#fff36a' : '#3b56c9'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 2, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(b.x - 6, b.y - 7, 2, b.x, b.y, b.r);
+    g.addColorStop(0, '#fff'); g.addColorStop(.35, on ? '#ffe04a' : '#ff5a3a'); g.addColorStop(1, on ? '#d07000' : '#7a1010');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, b.r - 4, 0, Math.PI * 2); ctx.fill();
+  });
+  drops.forEach(d => { if (d.on) { ctx.lineCap = 'butt'; ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 6; ctx.beginPath(); wallPath(ctx, d); ctx.stroke(); } });
+  fuels.forEach((f, i) => { ctx.lineCap = 'butt'; ctx.strokeStyle = G.fuel[i] ? '#ffe9a0' : '#ff7a1a'; ctx.lineWidth = 4; ctx.beginPath(); wallPath(ctx, f); ctx.stroke(); });
+  ctx.lineCap = 'round';
+  slings.forEach(s => { if (s.fl > 0) { ctx.strokeStyle = '#fffbd0'; ctx.lineWidth = 6; ctx.beginPath(); wallPath(ctx, s); ctx.stroke(); } });
+  const py = plunger.y1;
+  ctx.fillStyle = '#ccc'; ctx.fillRect(374, py, 24, 7); ctx.fillStyle = '#555'; ctx.fillRect(382, py + 7, 8, 800 - py);
+  [flL, flR].forEach(f => {
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a); flipPath(f.len);
+    ctx.fillStyle = '#e8ecf4'; ctx.fill(); ctx.strokeStyle = '#c4161c'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  });
+  if (ball.live) {
+    const s = ball.cap > 0 ? Math.max(.25, Math.abs(ball.cap - .65) / .65) : 1, r = R * s;
+    const g = ctx.createRadialGradient(ball.x - r * .4, ball.y - r * .45, r * .1, ball.x, ball.y, r);
+    g.addColorStop(0, '#fff'); g.addColorStop(.3, '#d0d6e2'); g.addColorStop(.75, '#6b7488'); g.addColorStop(1, '#2c3240');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ball.x, ball.y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  if (G.paused) { ctx.setTransform(K, 0, 0, K, 0, 0); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, TW, TH); }
+}
+
+/* ---------------- Boucle principale ---------------- */
+let last = performance.now(), acc = 0, musicAcc = 0;
+function frame(now) {
+  let dt = Math.min(.05, (now - last) / 1000); last = now;
+  const run = !G.paused && !minimized;
+  if (run) {
+    G.t += dt;
+    if (G.charging) G.charge = Math.min(1, G.charge + dt * 1.1);
+    if (G.charging || G.charge) plunger.y1 = plunger.y2 = 722 + G.charge * 26;
+    acc += dt;
+    while (acc >= DT) { step(DT); acc -= DT; }
+    runTimers(dt);
+    bumpers.forEach(b => b.fl > 0 && (b.fl -= dt)); slings.forEach(s => s.fl > 0 && (s.fl -= dt));
+    if (G.shake > 0) G.shake -= dt;
+    if (G.orbitFlash > 0) G.orbitFlash -= dt;
+    if (G.save > 0 && ball.live && !ball.inLane && ball.cap <= 0) G.save -= dt;
+    G.tiltMeter = Math.max(0, G.tiltMeter - dt * .7);
+    if (msgT > 0 && msgT < 9000) { msgT -= dt; if (msgT <= 0) idleText(); }
+    musicAcc += dt; if (musicAcc > .2) { musicAcc = 0; musicTick(); }
+  }
+  if (!minimized) { if (window.R3D && OPT.view3d) window.R3D.render(run ? dt : 0, dt); else render2D(); }
+  updPanel();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- Entrées ---------------- */
+function flip(side, down) {
+  const k = side === 'L' ? 'left' : 'right';
+  if (keys[k] === down) return;
+  keys[k] = down;
+  if (down && G.state === 'play' && !G.tilt && !G.paused) {
+    SFX.flip();
+    if (side === 'L') G.lanes.push(G.lanes.shift()); else G.lanes.unshift(G.lanes.pop());
+  }
+}
+function plungeStart() {
+  if (G.state !== 'play') { newGame(); return; }
+  if (G.paused) return;
+  G.charging = true;
+}
+function plungeEnd() {
+  if (!G.charging) return;
+  G.charging = false;
+  const p = G.charge; G.charge = 0;
+  if (ball.live && ball.inLane && ball.y > plunger.y1 - 26) {
+    ball.y = Math.min(ball.y, 722 - R - plunger.r - .5);   // le piston revient en position haute
+    ball.vy = -(520 + 1250 * p); SFX.launch(p); fx('launch', p);
+  }
+  plunger.y1 = plunger.y2 = 722;
+}
+const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
+addEventListener('keydown', e => {
+  if (dlgOpen) { if (e.code === 'Enter' || e.code === 'Escape') closeDlg(); e.preventDefault(); return; }
+  const c = e.code;
+  if (c === 'F2') { e.preventDefault(); newGame(); return; }
+  if (c === 'F3') { e.preventDefault(); togglePause(); return; }
+  if (c === 'F1') { e.preventDefault(); showHelp(); return; }
+  if (c === 'F4') { e.preventDefault(); toggleFull(); return; }
+  if (c === 'F6') { e.preventDefault(); setView(!OPT.view3d); return; }
+  if (KL.includes(c) || e.key === 'z' || e.key === 'Z') { e.preventDefault(); flip('L', true); }
+  else if (KR.includes(c) || e.key === '/' || e.key === ':') { e.preventDefault(); flip('R', true); }
+  else if (KP.includes(c)) { e.preventDefault(); if (!e.repeat) plungeStart(); }
+  else if (!e.repeat && (c === 'KeyX' || e.key === 'x')) nudge(1, 0);
+  else if (!e.repeat && (c === 'Period' || e.key === '.' || c === 'NumpadDecimal')) nudge(-1, 0);
+  else if (!e.repeat && c === 'ArrowUp') { e.preventDefault(); nudge(0, -1); }
+});
+addEventListener('keyup', e => {
+  const c = e.code;
+  if (KL.includes(c) || e.key === 'z' || e.key === 'Z') flip('L', false);
+  else if (KR.includes(c) || e.key === '/' || e.key === ':') flip('R', false);
+  else if (KP.includes(c)) plungeEnd();
+});
+// Tactile / souris sur la zone de jeu
+const stage = $('stage'), ptrs = new Map();
+stage.addEventListener('pointerdown', e => {
+  e.preventDefault(); stage.setPointerCapture(e.pointerId); audio();
+  if (G.state !== 'play') { newGame(); return; }
+  const r = stage.getBoundingClientRect(), fx_ = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+  let role;
+  if (ball.inLane && fx_ > .75 && fy > .6) { role = 'P'; plungeStart(); }
+  else if (fx_ < .5) { role = 'L'; flip('L', true); } else { role = 'R'; flip('R', true); }
+  ptrs.set(e.pointerId, role);
+});
+function ptrUp(e) {
+  const role = ptrs.get(e.pointerId); if (!role) return; ptrs.delete(e.pointerId);
+  if (role === 'P') plungeEnd(); else if (![...ptrs.values()].includes(role)) flip(role, false);
+}
+stage.addEventListener('pointerup', ptrUp); stage.addEventListener('pointercancel', ptrUp);
+stage.addEventListener('contextmenu', e => e.preventDefault());
+
+function togglePause() { if (G.state !== 'play') return; G.paused = !G.paused; if (G.paused) msg('PAUSE', 'F3 pour reprendre', 9999); else { msgT = 0; idleText(); } }
+addEventListener('blur', () => { if (G.state === 'play' && !G.paused) togglePause(); keys.left = keys.right = false; });
+
+/* ---------------- Fenêtre, menus, dialogues ---------------- */
+const win = $('win');
+let scale = 1, posX = null, posY = null, minimized = false, vertical = null;
+// Mesure la taille non mise à l'échelle de la fenêtre dans une disposition donnée
+function measure(vert) { win.classList.toggle('vert', vert); return [win.offsetWidth, win.offsetHeight]; }
+function layout() {
+  if (minimized) return;   // fenêtre masquée : impossible de la mesurer
+  const availW = innerWidth - 12, availH = innerHeight - 30 - 12;
+  const [hw, hh] = measure(false), sH = Math.min(availW / hw, availH / hh);
+  const [vw, vh] = measure(true), sV = Math.min(availW / vw, availH / vh);
+  // Panneau sous la table si cela permet un affichage nettement plus grand (écrans étroits / portrait)
+  const vert = sV > sH * 1.08;
+  const [w0, h0] = measure(vert);
+  if (vert !== vertical) { vertical = vert; posX = null; }
+  scale = Math.min(vert ? sV : sH, 1.6);
+  win.style.transform = `scale(${scale})`;
+  const w = w0 * scale, h = h0 * scale;
+  if (posX === null || posX + w > innerWidth || posY + h > innerHeight - 30) { posX = (innerWidth - w) / 2; posY = Math.max(4, (innerHeight - 30 - h) / 2); }
+  win.style.left = posX + 'px'; win.style.top = posY + 'px';
+  K = Math.min(2, Math.max(1, (devicePixelRatio || 1) * scale));
+  cv.width = TW * K; cv.height = TH * K; buildStatic();
+  if (window.R3D) window.R3D.resize(K);
+}
+addEventListener('resize', layout);
+let drag = null;
+$('title').addEventListener('pointerdown', e => { if (e.target.closest('.tb')) return; drag = [e.clientX - posX, e.clientY - posY]; $('title').setPointerCapture(e.pointerId); });
+$('title').addEventListener('pointermove', e => { if (!drag) return; posX = e.clientX - drag[0]; posY = Math.max(0, e.clientY - drag[1]); win.style.left = posX + 'px'; win.style.top = posY + 'px'; });
+$('title').addEventListener('pointerup', () => drag = null);
+$('title').addEventListener('dblclick', () => { posX = null; layout(); });
+function setMin(v) { minimized = v; win.style.display = v ? 'none' : ''; $('task').classList.toggle('min', v); if (!v) { last = performance.now(); layout(); } }
+$('bMin').onclick = () => setMin(true);
+$('bClose').onclick = () => setMin(true);
+$('task').onclick = () => setMin(!minimized);
+$('bMax').onclick = toggleFull;
+function toggleFull() { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => { }); }
+document.querySelectorAll('.mi').forEach(mi => {
+  mi.addEventListener('click', e => {
+    const item = e.target.closest('[data-a]');
+    if (item) { document.querySelectorAll('.mi').forEach(m => m.classList.remove('open')); act(item.dataset.a); e.stopPropagation(); return; }
+    const was = mi.classList.contains('open'); document.querySelectorAll('.mi').forEach(m => m.classList.remove('open')); if (!was) mi.classList.add('open'); e.stopPropagation();
+  });
+  mi.addEventListener('mouseenter', () => { if (document.querySelector('.mi.open') && !mi.classList.contains('open')) { document.querySelectorAll('.mi').forEach(m => m.classList.remove('open')); mi.classList.add('open'); } });
+});
+addEventListener('click', () => document.querySelectorAll('.mi').forEach(m => m.classList.remove('open')));
+function toggleOpt(k, id) { OPT[k] = !OPT[k]; $(id).classList.toggle('chk', OPT[k]); }
+function act(a) {
+  if (a === 'new') newGame();
+  else if (a === 'pause') togglePause();
+  else if (a === 'close') setMin(true);
+  else if (a === 'sound') toggleOpt('sound', 'optSound');
+  else if (a === 'music') { toggleOpt('music', 'optMusic'); audio(); }
+  else if (a === 'v2d') setView(false);
+  else if (a === 'v3d') setView(true);
+  else if (a === 'cam') toggleOpt('cam', 'optCam');
+  else if (a === 'fx') toggleOpt('fx', 'optFx');
+  else if (a === 'full') toggleFull();
+  else if (a === 'help') showHelp();
+  else if (a === 'high') showDlg('Meilleurs scores', `<table><tr><td>1.</td><td>Joueur 1</td><td style="text-align:right">${fmt(HIGH)}</td></tr></table>`);
+  else if (a === 'about') showDlg('À propos de Pinball', '<b>3D Pinball – Space Cadet</b><br>Recréation hommage du flipper livré avec Windows XP.<br><br>Rendu 3D temps réel : Three.js (WebGL), éclairage PBR, reflets dynamiques, bloom et particules. Physique, graphismes et sons générés par code.');
+}
+let dlgOpen = false, pausedByDlg = false;
+function showDlg(t, html) {
+  $('dlgT').textContent = t; $('dlgB').innerHTML = html; $('dlg').classList.add('show'); dlgOpen = true;
+  if (G.state === 'play' && !G.paused) { G.paused = true; pausedByDlg = true; }
+}
+function closeDlg() { $('dlg').classList.remove('show'); dlgOpen = false; if (pausedByDlg) { G.paused = false; pausedByDlg = false; last = performance.now(); } }
+$('dlgOk').onclick = closeDlg; $('dlgX').onclick = closeDlg;
+function showHelp() {
+  showDlg('Commandes du jeu', `<table>
+    <tr><td>Flipper gauche</td><td>Z, Maj gauche ou ←</td></tr>
+    <tr><td>Flipper droit</td><td>/, Maj droite ou →</td></tr>
+    <tr><td>Lanceur</td><td>Espace (maintenir puis relâcher)</td></tr>
+    <tr><td>Secouer</td><td>X (gauche) · . (droite) · ↑ (haut)</td></tr>
+    <tr><td>Nouvelle partie</td><td>F2</td></tr><tr><td>Pause</td><td>F3</td></tr>
+    <tr><td>Affichage 2D / 3D</td><td>F6 (ou menu Options)</td></tr>
+    <tr><td>Tactile</td><td>Moitié gauche/droite = flippers, coin bas-droit = lanceur</td></tr></table>
+    <br><b>But :</b> accomplissez les missions pour monter en grade, de Cadet jusqu'à Amiral de la Flotte. Les 3 couloirs du haut augmentent le multiplicateur ; 3 missions = une bille supplémentaire. Attention au TILT !`);
+}
+function clock() { $('clock').textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); }
+setInterval(clock, 10000); clock();
+
+/* ---------------- Démarrage ---------------- */
+layout(); drawRanks(); updPanel();
+msg('3D PINBALL', 'Appuyez sur F2 pour une nouvelle partie', 9999);
+requestAnimationFrame(frame);
+setTimeout(() => { if (!window.R3D) $('loading').textContent = 'Moteur 3D indisponible (connexion Internet requise) — mode 2D'; }, 30000);
+
+/* ---------------- Choix de l'affichage 2D / 3D ---------------- */
+function applyView() {
+  const use3d = OPT.view3d && !!window.R3D;
+  cv.style.display = use3d ? 'none' : 'block';
+  $('gl').style.display = use3d ? 'block' : 'none';
+  $('loading').style.display = OPT.view3d && !window.R3D ? '' : 'none';
+  $('optV3d').classList.toggle('chk', OPT.view3d); $('optV2d').classList.toggle('chk', !OPT.view3d);
+  // Les options de caméra et d'effets ne concernent que la 3D
+  ['optCam', 'optFx'].forEach(id => $(id).style.opacity = OPT.view3d ? '' : '.45');
+}
+function setView(v3) {
+  OPT.view3d = v3;
+  try { localStorage.setItem('pinballXP.view', v3 ? '3d' : '2d'); } catch (e) { }
+  applyView();
+  banner(v3 ? (window.R3D ? 'AFFICHAGE 3D' : 'CHARGEMENT 3D…') : 'AFFICHAGE 2D', v3 ? '#38e0ff' : '#ffd23a');
+}
+applyView();
+</script>
+
+<!-- =====================================================================
+     MOTEUR 3D — Three.js + post-traitement (bloom), reflets temps réel
+     ===================================================================== -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const glc = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas: glc, antialias: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x02020c);
+const pmrem = new THREE.PMREMGenerator(renderer);
+// Environnement de reflets : studio sombre avec panneaux néon (pour le chrome et la bille)
+{
+  const env = new THREE.Scene();
+  const room = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), new THREE.MeshBasicMaterial({ color: 0x0a0c22, side: THREE.BackSide }));
+  env.add(room);
+  const panel = (w, h, color, k, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
+  };
+  panel(90, 40, 0xfff4e8, 3, 0, 80, 20);        // softbox au plafond
+  panel(10, 120, 0x30d8ff, 4, 80, 10, 30);      // néon cyan
+  panel(10, 120, 0xff3fc8, 4, -80, 10, -30);    // néon rose
+  panel(120, 8, 0xffb020, 3, 0, 20, -90);       // bandeau doré
+  panel(60, 20, 0x6a4aff, 2, 30, -40, 80);
+  scene.environment = pmrem.fromScene(env, 0.02).texture;
+}
+
+const camera = new THREE.PerspectiveCamera(40, STW / STH, 1, 8000);
+const V = (x, y, h = 0) => new THREE.Vector3(x - 210, h, y - 390);   // plan 2D -> monde 3D
+const rand = (a, b) => a + Math.random() * (b - a);
+
+/* ---------- Textures procédurales ---------- */
+function canvasTex(w, h, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+}
+const glowTex = canvasTex(64, 64, c => {
+  const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.2, 'rgba(255,255,255,.8)'); g.addColorStop(.5, 'rgba(255,255,255,.2)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+}, false);
+
+/* ---------- Lumières ---------- */
+scene.add(new THREE.HemisphereLight(0x8fa0ff, 0x1a0520, 0.35));
+const key = new THREE.DirectionalLight(0xfff4e8, 2.0);
+key.position.set(-160, 700, 380); key.target.position.set(0, 0, -20);
+key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -330, right: 330, top: 520, bottom: -520, near: 200, far: 1700 });
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.6;
+scene.add(key, key.target);
+const rimA = new THREE.PointLight(0xff3fd0, 30000, 0, 2); rimA.position.set(-300, 140, -150); scene.add(rimA);
+const rimB = new THREE.PointLight(0x30d8ff, 30000, 0, 2); rimB.position.set(300, 140, 160); scene.add(rimB);
+const holeLight = new THREE.PointLight(0xa040ff, 3000, 160, 2); holeLight.position.copy(V(hole.x, hole.y, 20)); scene.add(holeLight);
+
+/* ---------- Matériaux ---------- */
+const M = {
+  chrome: new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .12 }),
+  darkChrome: new THREE.MeshStandardMaterial({ color: 0x8890a8, metalness: 1, roughness: .3 }),
+  wall: new THREE.MeshPhysicalMaterial({ color: 0x0b1030, metalness: .3, roughness: .4, clearcoat: 1, clearcoatRoughness: .1, envMapIntensity: .35 }),
+  cabinet: new THREE.MeshPhysicalMaterial({ color: 0x5a0814, metalness: .6, roughness: .35, clearcoat: 1, clearcoatRoughness: .06, envMapIntensity: .5 }),
+  rubberW: new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: .55 }),
+  rubberR: new THREE.MeshStandardMaterial({ color: 0xd0141c, roughness: .45 }),
+  black: new THREE.MeshStandardMaterial({ color: 0x050508, roughness: .8 }),
+};
+const neonMat = c => new THREE.MeshStandardMaterial({ color: 0x000000, emissive: c, emissiveIntensity: 4, toneMapped: false });
+const glowMat = (c, op = 1) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+
+/* ---------- Helpers de géométrie ---------- */
+function shadowed(m, cast = true) { m.castShadow = cast; m.receiveShadow = true; return m; }
+function bar(x1, y1, x2, y2, w, h, mat, y0 = 0) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(L, h, w), mat);
+  m.position.copy(V((x1 + x2) / 2, (y1 + y2) / 2, y0 + h / 2)); m.rotation.y = -Math.atan2(dy, dx);
+  return shadowed(m);
+}
+function post(x, y, r, h, mat, y0 = 0, seg = 24) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), mat); m.position.copy(V(x, y, y0 + h / 2)); return shadowed(m);
+}
+function capsule(s, w, h, mat, y0 = 0) {
+  const g = new THREE.Group(); g.add(bar(s.x1, s.y1, s.x2, s.y2, w, h, mat, y0), post(s.x1, s.y1, w / 2, h, mat, y0), post(s.x2, s.y2, w / 2, h, mat, y0)); return g;
+}
+function extrude(shape, depth, mat, bevel = 0) {   // forme dans le plan (x, y2D) -> volume posé sur la table
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 48 });
+  g.rotateX(Math.PI / 2); g.translate(0, depth, 0);
+  return shadowed(new THREE.Mesh(g, mat));
+}
+function tube(points, r, mat) {
+  return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), points.length * 4, r, 8, false), mat);
+}
+
+/* ---------- Plateau ---------- */
+const artTex = canvasTex(TW * 3, TH * 3, c => { c.setTransform(3, 0, 0, 3, 0, 0); drawArt(c, false); });
+const field = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH).rotateX(-Math.PI / 2),
+  new THREE.MeshPhysicalMaterial({ map: artTex, emissive: 0xffffff, emissiveMap: artTex, emissiveIntensity: .75, roughness: .45, clearcoat: .7, clearcoatRoughness: .08, envMapIntensity: .15 }));
+field.receiveShadow = true; scene.add(field);
+const under = new THREE.Mesh(new THREE.PlaneGeometry(TW + 40, 120).rotateX(-Math.PI / 2), M.black);
+under.position.set(0, -.5, 420); scene.add(under);
+
+/* ---------- Murs ---------- */
+const arcShape = new THREE.Shape();
+arcShape.absarc(0, -190, 204, Math.PI, Math.PI * 2, false);
+arcShape.absarc(0, -190, 188, Math.PI * 2, Math.PI, true);
+scene.add(extrude(arcShape, 30, M.wall));
+const arcPts = []; for (let i = 0; i <= 48; i++) { const a = Math.PI + Math.PI * i / 48; arcPts.push(new THREE.Vector3(189 * Math.cos(a), 30, -190 + 189 * Math.sin(a))); }
+const neonCyan = neonMat(0x30e0ff), neonPink = neonMat(0xff3fc8), neonGold = neonMat(0xffb020);
+scene.add(tube(arcPts, 1.8, neonCyan));
+
+for (const s of walls) {
+  switch (s.kind) {
+    case 'arc': case 'drop': case 'fuel': case 'plunger': case 'slingside': case 'sling': break;
+    case 'outer': {
+      const off = s.x1 < 200 ? -6 : 6;
+      scene.add(bar(s.x1 + off, s.y1, s.x2 + off, s.y2, 12, 30, M.wall));
+      scene.add(bar(s.x1 + off * .58, s.y1, s.x2 + off * .58, s.y2 - 60, 3, 3, neonPink, 30));
+      break;
+    }
+    case 'gate': scene.add(bar(s.x1, s.y1, s.x2, s.y2, 2.5, 16, M.chrome)); break;
+    case 'post': scene.add(capsule(s, 2 * s.r + 2, 20, M.chrome)); scene.add(post(s.x1, s.y1, 3.5, 4, neonCyan, 20)); break;
+    default:
+      scene.add(capsule(s, 2 * s.r + 1.5, 20, M.chrome));
+      if (s.kind === 'rail') scene.add(bar(s.x1, s.y1, s.x2, s.y2, 1.4, 1.2, neonCyan, 20));
+  }
+}
+
+/* ---------- Meuble ---------- */
+const cab = (w, h, d, x, y, z, mat) => { const m = shadowed(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)); m.position.set(x, y, z); scene.add(m); return m; };
+cab(30, 54, 940, -210 - 7, 27 - 8, 40, M.cabinet);
+cab(30, 54, 940, 210 + 7, 27 - 8, 40, M.cabinet);
+cab(464, 54, 40, 0, 19, -390 - 18, M.cabinet);
+cab(464, 54, 40, 0, 19, 470, M.cabinet);
+cab(34, 4, 940, -217, 48, 40, M.chrome); cab(34, 4, 940, 217, 48, 40, M.chrome);
+const lockbar = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 470, 32).rotateZ(Math.PI / 2), M.chrome);
+lockbar.position.set(0, 52, 460); scene.add(lockbar);
+// Tablier (apron) imprimé
+const apronTex = canvasTex(704, 130, (c, w, h) => {
+  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#1a1f4a'); g.addColorStop(1, '#06081c'); c.fillStyle = g; c.fillRect(0, 0, w, h);
+  c.strokeStyle = '#ffb020'; c.lineWidth = 4; c.strokeRect(6, 6, w - 12, h - 12);
+  c.textAlign = 'center'; c.font = 'italic 900 52px "Arial Black",Impact'; c.fillStyle = '#ffd23a'; c.shadowColor = '#ff6a00'; c.shadowBlur = 18;
+  c.fillText('SPACE CADET', w / 2, 72); c.shadowBlur = 0;
+  c.font = 'bold 20px Tahoma'; c.fillStyle = '#8fd8ff'; c.fillText('3D PINBALL  ·  BILLE SPATIALE', w / 2, 108);
+});
+const apronMat = new THREE.MeshPhysicalMaterial({ map: apronTex, emissive: 0xffffff, emissiveMap: apronTex, emissiveIntensity: .6, roughness: .3, clearcoat: 1 });
+const apron = shadowed(new THREE.Mesh(new THREE.BoxGeometry(352, 22, 66), [M.wall, M.wall, apronMat, M.wall, M.wall, M.wall]));
+apron.position.copy(V(196, 776, 11)); scene.add(apron);
+
+/* ---------- Slingshots ---------- */
+const slingMeshes = slings.map((s, i) => {
+  const xs = i === 0 ? [82, 82, 118] : [MX(82), MX(82), MX(118)], ys = [500, 575, 611];
+  const sh = new THREE.Shape(); sh.moveTo(xs[0] - 210, ys[0] - 390); sh.lineTo(xs[1] - 210, ys[1] - 390); sh.lineTo(xs[2] - 210, ys[2] - 390); sh.closePath();
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0xff6a10, emissive: 0xff4a00, emissiveIntensity: .5, roughness: .15, clearcoat: 1, transparent: true, opacity: .92 });
+  const m = extrude(sh, 15, mat, 1.2); scene.add(m);
+  const rub = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .5, emissive: 0xffffff, emissiveIntensity: 0 });
+  scene.add(capsule(s, 5, 13, rub, 1));
+  for (let k = 0; k < 3; k++) scene.add(post(xs[k], ys[k], 3.5, 20, M.chrome));
+  return { mat, rub };
+});
+
+/* ---------- Bumpers ---------- */
+const capTex = canvasTex(256, 256, (c) => {
+  const g = c.createRadialGradient(128, 128, 10, 128, 128, 128); g.addColorStop(0, '#ffffff'); g.addColorStop(.55, '#ffe7a0'); g.addColorStop(1, '#ff8a00');
+  c.fillStyle = g; c.fillRect(0, 0, 256, 256);
+  c.fillStyle = '#d0101a'; c.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 42 : 100; c.lineTo(128 + Math.cos(a) * r, 128 + Math.sin(a) * r); }
+  c.fill(); c.fillStyle = '#fff'; c.font = 'bold 44px Arial Black,Impact'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('500', 128, 132);
+});
+const bumperObjs = bumpers.map(b => {
+  const g = new THREE.Group(); g.position.copy(V(b.x, b.y, 0)); scene.add(g);
+  const base = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(b.r + 4, b.r + 5, 4, 40), M.darkChrome)); base.position.y = 2; g.add(base);
+  const skirtMat = new THREE.MeshStandardMaterial({ color: 0x2040ff, emissive: 0x2060ff, emissiveIntensity: .8, roughness: .3 });
+  const skirt = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(b.r + 2, b.r + 3, 4, 40), skirtMat)); skirt.position.y = 6; g.add(skirt);
+  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0xff3020, emissive: 0xff2010, emissiveIntensity: .6, roughness: .1, transmission: 0, clearcoat: 1 });
+  const body = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(b.r - 4, b.r - 2, 14, 40), bodyMat)); body.position.y = 15; g.add(body);
+  const capSide = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .15, clearcoat: 1, emissive: 0xffaa40, emissiveIntensity: .2 });
+  const capTop = new THREE.MeshPhysicalMaterial({ map: capTex, roughness: .15, clearcoat: 1, emissive: 0xffffff, emissiveMap: capTex, emissiveIntensity: .35 });
+  const cap = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(b.r + 1, b.r - 1, 5, 40), [capSide, capTop, capSide])); cap.position.y = 24.5; g.add(cap);
+  const light = new THREE.PointLight(0xff8030, 0, 200, 2); light.position.y = 34; g.add(light);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffa030, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(110, 110, 1); halo.position.y = 18; g.add(halo);
+  return { b, g, bodyMat, skirtMat, capTop, cap, light, halo };
+});
+
+/* ---------- Cibles ---------- */
+const dropMeshes = drops.map(d => {
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0xffc81a, emissive: 0xffa000, emissiveIntensity: .5, roughness: .2, clearcoat: 1 });
+  const m = shadowed(new THREE.Mesh(new THREE.BoxGeometry(6, 20, 22), mat)); m.position.copy(V(d.x1, (d.y1 + d.y2) / 2, 10)); scene.add(m); return { d, m, mat };
+});
+const fuelMeshes = fuels.map(f => {
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0xff6a10, emissive: 0xff5000, emissiveIntensity: .5, roughness: .2, clearcoat: 1 });
+  const m = shadowed(new THREE.Mesh(new THREE.BoxGeometry(5, 18, 22), mat)); m.position.copy(V(f.x1, (f.y1 + f.y2) / 2, 9)); scene.add(m); return { m, mat };
+});
+
+/* ---------- Inserts lumineux ---------- */
+const domeGeo = new THREE.SphereGeometry(1, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+const inserts = [];
+function insert(x, y, r, color, on) {
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0x151520, emissive: color, emissiveIntensity: .1, roughness: .1, clearcoat: 1, toneMapped: false });
+  const m = new THREE.Mesh(domeGeo, mat); m.scale.set(r, r * .4, r); m.position.copy(V(x, y, 0)); scene.add(m);
+  const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  h.scale.set(r * 6, r * 6, 1); h.position.copy(V(x, y, 2)); scene.add(h);
+  inserts.push({ mat, h, on, lvl: 0, i: inserts.length });
+}
+const blink = (hz = 4) => Math.floor(G.t * hz) % 2 === 0;
+lanesPos.forEach((x, i) => insert(x, 95, 6, 0x30e0ff, () => G.lanes[i]));
+multPos.forEach((x, i) => insert(x, 480, 9, 0xffd000, () => G.mult >= i + 2));
+drops.forEach((d, i) => insert(116, 301 + i * 25, 5, 0xff2a2a, () => !d.on));
+fuels.forEach((f, i) => insert(348, 311 + i * 28, 5, 0xff9010, () => G.fuel[i]));
+insert(196, 632, 7, 0x30ff60, () => G.save > 0 && (G.save > 2 || blink(6)));
+rankPos.forEach(([x, y], i) => insert(x, y, 4.5, 0xff40c8, () => i <= G.rank));
+// Flèches d'orbite
+const arrowShape = new THREE.Shape(); arrowShape.moveTo(0, -15); arrowShape.lineTo(10, 6); arrowShape.lineTo(0, 1); arrowShape.lineTo(-10, 6); arrowShape.closePath();
+const arrowMats = [40, 352].map(x => {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x050a10, emissive: 0x30e0ff, emissiveIntensity: .1, toneMapped: false });
+  const m = extrude(arrowShape, .6, mat); m.position.x += x - 210; m.position.z += 280 - 390; scene.add(m); return mat;
+});
+
+/* ---------- Trou noir (shader) ---------- */
+const vortexMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { uTime: { value: 0 }, uBoost: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: `varying vec2 vUv; uniform float uTime; uniform float uBoost;
+    void main(){
+      vec2 p=vUv*2.0-1.0; float r=length(p); float a=atan(p.y,p.x);
+      float s=sin(a*3.0+9.0*log(r+0.04)-uTime*(3.0+uBoost*10.0));
+      float arms=smoothstep(0.1,1.0,s);
+      float ring=smoothstep(1.0,0.45,r)*smoothstep(0.12,0.38,r);
+      vec3 col=mix(vec3(0.45,0.08,1.0),vec3(0.2,0.85,1.0),arms*0.7);
+      col*= (0.5+arms*2.6)*(1.0+uBoost*2.5);
+      float alpha=ring*(0.25+arms*0.75);
+      float core=smoothstep(0.36,0.22,r);
+      col=mix(col,vec3(0.0),core); alpha=max(alpha,core);
+      float rim=smoothstep(0.05,0.0,abs(r-0.38))*1.5; col+=vec3(0.8,0.5,1.0)*rim*(1.0+uBoost);
+      gl_FragColor=vec4(col,alpha);
+    }`,
+});
+const vortex = new THREE.Mesh(new THREE.PlaneGeometry(76, 76).rotateX(-Math.PI / 2), vortexMat);
+vortex.position.copy(V(hole.x, hole.y, .6)); scene.add(vortex);
+const holeRingMat = glowMat(0xc060ff, 0);
+const holeRing = new THREE.Mesh(new THREE.TorusGeometry(24, 1.2, 8, 64).rotateX(Math.PI / 2), holeRingMat);
+holeRing.position.copy(V(hole.x, hole.y, 2)); scene.add(holeRing);
+
+/* ---------- Flippers ---------- */
+function flipShape(L, r1, r2) {
+  const s = new THREE.Shape(); s.absarc(0, 0, r1, Math.PI / 2, Math.PI * 1.5, false); s.lineTo(L, -r2); s.absarc(L, 0, r2, -Math.PI / 2, Math.PI / 2, false); s.lineTo(0, r1); return s;
+}
+const flipBody = new THREE.MeshPhysicalMaterial({ color: 0xf4f6ff, roughness: .18, clearcoat: 1, clearcoatRoughness: .05 });
+const flipObjs = [flL, flR].map(f => {
+  const g = new THREE.Group(); g.position.copy(V(f.x, f.y, 0)); scene.add(g);
+  const body = extrude(flipShape(f.len, 7.5, 4.2), 14, flipBody, .8); body.position.y = 1; g.add(body);
+  const rub = extrude(flipShape(f.len, 8.9, 5.4), 6, M.rubberR); rub.position.y = 5; g.add(rub);
+  const capm = post(f.x, f.y, 4, 3, M.chrome, 16); capm.position.set(0, 17.5, 0); g.add(capm);
+  return { f, g };
+});
+
+/* ---------- Lanceur ---------- */
+const plungerG = new THREE.Group(); scene.add(plungerG);
+const knob = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 8, 32).rotateX(Math.PI / 2), new THREE.MeshPhysicalMaterial({ color: 0xff2a2a, roughness: .2, clearcoat: 1 })));
+knob.position.set(0, 9, 4); plungerG.add(knob);
+const rod = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 90, 16).rotateX(Math.PI / 2), M.chrome)); rod.position.set(0, 9, 50); plungerG.add(rod);
+const springPts = []; for (let i = 0; i <= 160; i++) { const t = i / 160, a = t * Math.PI * 2 * 12; springPts.push(new THREE.Vector3(Math.cos(a) * 7, 9 + Math.sin(a) * 7, t * 60)); }
+const spring = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(springPts), 400, .9, 6, false), M.chrome);
+scene.add(spring);
+
+/* ---------- Bille chromée avec reflets temps réel ---------- */
+const cubeRT = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+const cubeCam = new THREE.CubeCamera(2, 3000, cubeRT); scene.add(cubeCam);
+const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .04, envMap: cubeRT.texture, envMapIntensity: 1.3 }));
+ballMesh.castShadow = true; scene.add(ballMesh);
+const ballGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x80c8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+ballGlow.scale.set(60, 60, 1); scene.add(ballGlow);
+
+// Traînée de comète
+const TRN = 34, trailPos = new Float32Array(TRN * 3), trailCol = new Float32Array(TRN * 3), hist = [];
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3)); trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 3));
+const trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({ size: 17, map: glowTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+trail.frustumCulled = false; scene.add(trail);
+
+/* ---------- Particules ---------- */
+const PN = 1600, pPos = new Float32Array(PN * 3).fill(-1e4), pCol = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pBase = new Float32Array(PN * 3), pLife = new Float32Array(PN), pMax = new Float32Array(PN), pGrav = new Float32Array(PN);
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3)); pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+const parts = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 7, map: glowTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+parts.frustumCulled = false; scene.add(parts);
+let pi = 0;
+const tmpC = new THREE.Color();
+function spawn(p, v, color, life, grav = 700) {
+  const k = pi++ % PN, k3 = k * 3;
+  pPos[k3] = p.x; pPos[k3 + 1] = p.y; pPos[k3 + 2] = p.z; pVel[k3] = v.x; pVel[k3 + 1] = v.y; pVel[k3 + 2] = v.z;
+  tmpC.set(color); pBase[k3] = tmpC.r * 3; pBase[k3 + 1] = tmpC.g * 3; pBase[k3 + 2] = tmpC.b * 3;
+  pLife[k] = pMax[k] = life; pGrav[k] = grav;
+}
+const _v = new THREE.Vector3();
+function burstW(p, n, color, spd, up = 1, life = .9) {
+  for (let i = 0; i < n; i++) {
+    const th = Math.random() * Math.PI * 2, ph = Math.random() * Math.PI * .5 * up, s = spd * rand(.3, 1);
+    _v.set(Math.cos(th) * Math.cos(ph) * s, Math.sin(ph) * s * 1.3 + 40, Math.sin(th) * Math.cos(ph) * s);
+    spawn(p, _v, Array.isArray(color) ? color[i % color.length] : color, rand(.4, life));
+  }
+}
+const burst = (x, y, n, c, s, h = 10, up = 1, life) => burstW(V(x, y, h), n, c, s, up, life);
+function updParts(dt) {
+  for (let k = 0; k < PN; k++) {
+    if (pLife[k] <= 0) continue;
+    const k3 = k * 3;
+    pLife[k] -= dt;
+    if (pLife[k] <= 0) { pPos[k3 + 1] = -1e4; continue; }
+    pVel[k3 + 1] -= pGrav[k] * dt;
+    pPos[k3] += pVel[k3] * dt; pPos[k3 + 1] += pVel[k3 + 1] * dt; pPos[k3 + 2] += pVel[k3 + 2] * dt;
+    if (pPos[k3 + 1] < 1 && pGrav[k] > 0) { pPos[k3 + 1] = 1; pVel[k3 + 1] *= -.4; pVel[k3] *= .7; pVel[k3 + 2] *= .7; }
+    const f = pLife[k] / pMax[k], b = f * f;
+    pCol[k3] = pBase[k3] * b; pCol[k3 + 1] = pBase[k3 + 1] * b; pCol[k3 + 2] = pBase[k3 + 2] * b;
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+}
+// Ondes de choc
+const shocks = Array.from({ length: 12 }, () => {
+  const m = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 64).rotateX(-Math.PI / 2), glowMat(0xffffff, 0)); m.visible = false; scene.add(m); m.userData = { t: 9, size: 60 }; return m;
+});
+let si = 0;
+function shock(x, y, color, size = 60, h = 3) {
+  const m = shocks[si++ % shocks.length]; m.position.copy(V(x, y, h)); m.material.color.set(color).multiplyScalar(2.5); m.userData.t = 0; m.userData.size = size; m.visible = true;
+}
+function updShocks(dt) {
+  for (const m of shocks) {
+    if (!m.visible) continue; const u = m.userData; u.t += dt; const k = u.t / .5;
+    if (k >= 1) { m.visible = false; continue; }
+    const s = 4 + u.size * (1 - Math.pow(1 - k, 3)); m.scale.set(s, 1, s); m.material.opacity = (1 - k);
+  }
+}
+
+/* ---------- Décor spatial : étoiles, nébuleuses, planète, fusée ---------- */
+{
+  const n = 3500, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const th = Math.random() * Math.PI * 2, ph = Math.acos(rand(-.2, 1)), r = rand(2500, 4000);
+    pos.set([Math.sin(ph) * Math.cos(th) * r, Math.cos(ph) * r * .8 - 300, Math.sin(ph) * Math.sin(th) * r], i * 3);
+    tmpC.setHSL(rand(.55, .75), .6, rand(.6, 1)); col.set([tmpC.r, tmpC.g, tmpC.b], i * 3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 2.2, sizeAttenuation: false, vertexColors: true, transparent: true, depthWrite: false })));
+  [[-1400, 300, -2600, 0x6020a0, 2600], [1500, -200, -2400, 0x103a90, 2400], [0, 900, -3000, 0xa02060, 2200]].forEach(([x, y, z, c, s]) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    sp.position.set(x, y, z); sp.scale.set(s, s, 1); scene.add(sp);
+  });
+}
+const planetTex = canvasTex(1024, 512, (c, w, h) => {
+  const g = c.createLinearGradient(0, 0, 0, h);
+  ['#1b1450', '#3a2a8a', '#7a4ab8', '#d07a5a', '#f2c27a', '#7a4ab8', '#2a3a9a', '#141040'].forEach((col, i, a) => g.addColorStop(i / (a.length - 1), col));
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 260; i++) { c.fillStyle = `rgba(${rand(150, 255) | 0},${rand(100, 200) | 0},${rand(150, 255) | 0},${rand(.03, .12)})`; c.fillRect(0, rand(0, h), w, rand(1, 8)); }
+  for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(255,255,255,${rand(.03, .08)})`; c.beginPath(); c.ellipse(rand(0, w), rand(0, h), rand(20, 90), rand(4, 12), 0, 0, Math.PI * 2); c.fill(); }
+});
+const planet = new THREE.Group(); planet.position.set(40, 170, -760); scene.add(planet);
+const planetMesh = new THREE.Mesh(new THREE.SphereGeometry(140, 64, 48), new THREE.MeshStandardMaterial({ map: planetTex, roughness: .8, emissive: 0x302060, emissiveIntensity: .35 }));
+planet.add(planetMesh);
+const ringTex = canvasTex(512, 512, (c) => {
+  for (let r = 150; r < 256; r += 1) { c.strokeStyle = `rgba(${200 + rand(0, 55) | 0},${150 + rand(0, 80) | 0},${120 + rand(0, 60) | 0},${(Math.sin(r * .35) * .5 + .5) * .55 * (r < 170 ? (r - 150) / 20 : 1)})`; c.lineWidth = 1.2; c.beginPath(); c.arc(256, 256, r, 0, Math.PI * 2); c.stroke(); }
+});
+const rings3D = new THREE.Mesh(new THREE.RingGeometry(170, 290, 128), new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+rings3D.rotation.x = -Math.PI / 2 + .35; rings3D.rotation.y = .25; planet.add(rings3D);
+// Coordonnées UV radiales pour l'anneau
+{ const g = rings3D.geometry, p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); uv.setXY(i, .5 + x / 580, .5 + y / 580); } }
+const atmo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x6a4aff, transparent: true, opacity: .7, blending: THREE.AdditiveBlending, depthWrite: false }));
+atmo.scale.set(480, 480, 1); planet.add(atmo);
+
+const rocket = new THREE.Group(); scene.add(rocket);
+{
+  const prof = [[0, 0], [9, 2], [12, 10], [13, 30], [12.5, 50], [10, 62]].map(([r, h]) => new THREE.Vector2(r, h));
+  const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), new THREE.MeshStandardMaterial({ color: 0xeef2ff, metalness: .6, roughness: .25 }));
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(10, 22, 40), new THREE.MeshStandardMaterial({ color: 0xd8202a, metalness: .4, roughness: .3 })); nose.position.y = 73;
+  const win_ = new THREE.Mesh(new THREE.SphereGeometry(4.5, 24, 16), new THREE.MeshStandardMaterial({ color: 0x0a2040, emissive: 0x40b0ff, emissiveIntensity: 3, toneMapped: false })); win_.position.set(0, 44, 11.5);
+  rocket.add(body, nose, win_);
+  const finShape = new THREE.Shape(); finShape.moveTo(0, 0); finShape.lineTo(14, -8); finShape.lineTo(14, 6); finShape.lineTo(0, 24); finShape.closePath();
+  for (let i = 0; i < 3; i++) {
+    const fg = new THREE.ExtrudeGeometry(finShape, { depth: 2, bevelEnabled: false }); fg.translate(11, 4, -1);
+    const fin = new THREE.Mesh(fg, nose.material); fin.rotation.y = i * Math.PI * 2 / 3; rocket.add(fin);
+  }
+}
+const flame = new THREE.Mesh(new THREE.ConeGeometry(7, 34, 24, 1, true), glowMat(0xff8a20, .9));
+flame.rotation.x = Math.PI; flame.position.y = -16; rocket.add(flame);
+const flameCore = new THREE.Mesh(new THREE.ConeGeometry(3.5, 20, 16, 1, true), glowMat(0xfff0c0, 1));
+flameCore.rotation.x = Math.PI; flameCore.position.y = -9; rocket.add(flameCore);
+const rocketLight = new THREE.PointLight(0xff8a30, 20000, 600, 2); rocketLight.position.y = -25; rocket.add(rocketLight);
+rocket.scale.setScalar(1.3);
+
+/* ---------- Post-traitement ---------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(STW, STH), .8, .45, 1.0);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ---------- Effets déclenchés par le jeu ---------- */
+const S = { shake: 0, shx: 0, shz: 0, pulse: 0, fov: 0, hole: 0, rocketT: 0, rocketMode: 0, drainT: 0, startT: 0, hyper: 0 };
+const ROCKET_HOME = new THREE.Vector3();
+function fireworks(n = 6, cols = [0xff40c8, 0x30e0ff, 0xffd000, 0x30ff60]) {
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const x = rand(60, 340), y = rand(150, 600), c = cols[i % cols.length];
+      burstW(V(x, y, rand(60, 140)), 70, [c, 0xffffff], 260, 2, 1.4); shock(x, y, c, 90);
+    }, i * 160);
+  }
+}
+window.FX3D = (type, a, b, c) => {
+  switch (type) {
+    case 'bump': burst(a, b, 36, [0xffd040, 0xff6020, 0xffffff], 260); shock(bumpers[c].x, bumpers[c].y, 0xffa020, 70, 8); S.shake = Math.max(S.shake, 3); S.pulse = Math.max(S.pulse, .35); break;
+    case 'sling': burst(a, b, 24, [0xffffff, 0xff8a20], 220, 8); S.shake = Math.max(S.shake, 2.5); break;
+    case 'drop': burst(a, b, 34, [0xffd23a, 0xffffff], 200, 10); shock(a, b, 0xffd23a, 40); break;
+    case 'fuel': burst(a, b, 22, [0xff8a10, 0xffe0a0], 180, 10); break;
+    case 'lane': burst(a, b, 20, 0x30e0ff, 140, 6); shock(a, b, 0x30e0ff, 30); break;
+    case 'spark': burst(a, b, Math.min(30, (c - 600) / 40) | 0, [0xffffff, 0xa0d8ff], 160, 6, .6, .5); break;
+    case 'hole': S.hole = 1.6; S.pulse = .9;
+      for (let i = 0; i < 90; i++) { const th = Math.random() * Math.PI * 2, r = rand(40, 90); const p = V(hole.x + Math.cos(th) * r, hole.y + Math.sin(th) * r, rand(2, 30)); spawn(p, _v.set(-Math.cos(th) * r * 1.6 - Math.sin(th) * 120, -p.y * 1.5, -Math.sin(th) * r * 1.6 + Math.cos(th) * 120), i % 2 ? 0xc060ff : 0x40c8ff, rand(.5, .8), 0); }
+      break;
+    case 'eject': burst(hole.x, hole.y, 80, [0xc060ff, 0x40c8ff, 0xffffff], 320, 6, 1, 1.1); shock(hole.x, hole.y, 0xc060ff, 120); S.shake = 7; S.pulse = 1; break;
+    case 'orbit': S.fov = 1; S.hyper = 1.2; S.pulse = 1.2; S.shake = 4;
+      for (let i = 0; i < 140; i++) { const a = Math.PI + Math.PI * Math.random(), p = V(210 + 175 * Math.cos(a), 200 + 175 * Math.sin(a), rand(5, 40)); spawn(p, _v.set(-Math.sin(a) * 600, rand(0, 60), Math.cos(a) * 600), i % 3 ? 0x30e0ff : 0xffffff, rand(.3, .7), 0); }
+      break;
+    case 'mission': fireworks(8); S.pulse = 1.6; S.shake = 6; S.rocketT = 0; S.rocketMode = 1; break;
+    case 'rank': fireworks(6, [0xff40c8, 0xffffff, 0xffd000]); S.pulse = 1.3; break;
+    case 'drain': S.drainT = 1; S.shake = 5; break;
+    case 'tilt': S.shake = 16; break;
+    case 'nudge': S.shake = Math.max(S.shake, 5); S.shx = a * 6; S.shz = b * 6; break;
+    case 'launch': burst(386, 718, 30 + a * 40 | 0, [0xffffff, 0x80c0ff], 180 + a * 200, 6, .5); S.shake = 1 + a * 4; break;
+    case 'start': S.startT = 1; fireworks(4); break;
+  }
+};
+
+/* ---------- Caméra ---------- */
+const camPos = new THREE.Vector3(0, 900, 1100), camLook = new THREE.Vector3(0, 0, -100), tgtPos = new THREE.Vector3(), tgtLook = new THREE.Vector3();
+function cameraTarget(t) {
+  if (G.state !== 'play') {
+    const a = t * .12;
+    tgtPos.set(Math.sin(a) * 900, 560 + Math.sin(t * .27) * 120, Math.cos(a) * 900 + 60);
+    tgtLook.set(0, 40, -120);
+    return;
+  }
+  const by = ball.live ? ball.y : 650, bx = ball.live ? ball.x : 196;
+  const f = OPT.cam ? Math.min(1, Math.max(0, (by - 120) / 600)) : .75;
+  const fx_ = OPT.cam ? (bx - 210) * .12 : 0;
+  tgtPos.set(fx_ * .6, 850 - f * 30, 715 + f * 20);
+  tgtLook.set(fx_, 0, -135 + f * 55);
+}
+
+/* ---------- Boucle de rendu 3D ---------- */
+let t3 = 0, frameNo = 0;
+const tmpV = new THREE.Vector3();
+function render3D(dt, realDt) {
+  t3 += realDt;
+  const t = G.t;
+  const attract = G.state !== 'play';
+
+  // Flippers
+  flipObjs.forEach(o => o.g.rotation.y = -o.f.a);
+  // Bille
+  ballMesh.visible = ball.live;
+  if (ball.live) {
+    let sc = 1, sink = 0;
+    if (ball.cap > 0) { const k = Math.min(1, (1.3 - ball.cap) / .4), out = Math.max(0, 1 - ball.cap / .25); sc = Math.max(.05, 1 - k + out); sink = (1 - sc) * 10; }
+    ballMesh.scale.setScalar(sc);
+    ballMesh.position.copy(V(ball.x, ball.y, R * sc - sink));
+    const sp = Math.hypot(ball.vx, ball.vy);
+    ballGlow.position.copy(ballMesh.position); ballGlow.material.opacity = Math.min(.6, Math.max(0, (sp - 700) / 2000)) * sc;
+    hist.unshift(ballMesh.position.clone()); if (hist.length > TRN) hist.pop();
+    const inten = Math.min(1.4, Math.max(0, (sp - 500) / 900));
+    for (let i = 0; i < TRN; i++) {
+      const p = hist[Math.min(i, hist.length - 1)], k = (1 - i / TRN) * inten;
+      trailPos.set([p.x, p.y, p.z], i * 3); trailCol.set([.25 * k, .7 * k, 1.4 * k], i * 3);
+    }
+  } else { hist.length = 0; trailCol.fill(0); ballGlow.material.opacity = 0; }
+  trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.color.needsUpdate = true;
+
+  // Lanceur
+  const py = plunger.y1;
+  plungerG.position.copy(V(386, py, 0));
+  spring.position.copy(V(386, py + 8, 0)); spring.scale.z = Math.max(.2, (800 - (py + 8)) / 60);
+  // Cibles
+  dropMeshes.forEach(o => { const ty = o.d.on ? 10 : -12; o.m.position.y += (ty - o.m.position.y) * Math.min(1, dt * 18); o.mat.emissiveIntensity = o.d.on ? .5 + (attract ? .3 * Math.sin(t3 * 3) : 0) : .1; });
+  fuelMeshes.forEach((o, i) => o.mat.emissiveIntensity = G.fuel[i] ? 3 : .5);
+  // Bumpers
+  bumperObjs.forEach((o, i) => {
+    const fl = Math.max(0, o.b.fl) / .15, chase = attract ? (Math.sin(t3 * 4 + i * 2) > .6 ? .6 : 0) : 0, k = Math.max(fl, chase);
+    o.bodyMat.emissiveIntensity = .6 + k * 6; o.capTop.emissiveIntensity = .35 + k * 2.5; o.skirtMat.emissiveIntensity = .8 + k * 4;
+    o.light.intensity = k * 30000; o.halo.material.opacity = k * .9; o.cap.position.y = 24.5 - fl * 3;
+  });
+  slings.forEach((s, i) => { const k = Math.max(0, s.fl) / .12; slingMeshes[i].mat.emissiveIntensity = .5 + k * 5; slingMeshes[i].rub.emissiveIntensity = k * 3; });
+  // Inserts
+  const dim = G.tilt ? .2 : 1;
+  inserts.forEach(o => {
+    let on = attract ? ((Math.floor(t3 * 9) + o.i) % 7 < 2) : !!o.on();
+    o.lvl += ((on ? 1 : 0) - o.lvl) * Math.min(1, dt * 20 || realDt * 20);
+    o.mat.emissiveIntensity = (.08 + o.lvl * 5) * dim; o.h.material.opacity = o.lvl * .85 * dim;
+  });
+  const m = MISSIONS[G.mIdx % MISSIONS.length];
+  const orbOn = (!attract && m.ev === 'orbit' && blink()) || G.orbitFlash > 0 && blink(10) || attract && blink(2);
+  arrowMats.forEach(a => a.emissiveIntensity = orbOn ? 5 : .15);
+  holeRingMat.opacity = (!attract && m.ev === 'hole') ? (.5 + .5 * Math.sin(t3 * 8)) : S.hole > 0 ? 1 : 0;
+  // Trou noir
+  S.hole = Math.max(0, S.hole - dt);
+  vortexMat.uniforms.uTime.value = t3; vortexMat.uniforms.uBoost.value = S.hole + (ball.cap > 0 ? 1 : 0);
+  holeLight.intensity = 3000 + S.hole * 20000;
+  // Décor
+  planetMesh.rotation.y += realDt * .05; rings3D.rotation.z += realDt * .02;
+  const orbitA = t3 * .4;
+  ROCKET_HOME.set(planet.position.x + Math.cos(orbitA) * 320, planet.position.y + 40 + Math.sin(orbitA * 1.3) * 50, planet.position.z + Math.sin(orbitA) * 140);
+  if (S.rocketMode) {
+    S.rocketT += realDt; const k = S.rocketT;
+    rocket.position.set(ROCKET_HOME.x * (1 - Math.min(1, k)), 120 + k * k * 260, -500 + k * 60);
+    rocket.rotation.set(0, k * 6, 0);
+    flame.scale.set(1.6, 2.5 + Math.random(), 1.6);
+    if (frameNo % 2 === 0) burstW(rocket.localToWorld(tmpV.set(0, -30, 0)), 6, [0xff8a20, 0xffe0a0], 120, -1, .9);
+    if (k > 3.5) S.rocketMode = 0;
+  } else {
+    rocket.position.lerp(ROCKET_HOME, Math.min(1, realDt * 2));
+    rocket.rotation.set(Math.sin(t3) * .15, t3 * .8, -Math.cos(orbitA) * .5 - .3);
+    flame.scale.set(1, 1 + Math.random() * .4, 1);
+  }
+  flameCore.scale.copy(flame.scale);
+
+  updParts(realDt); updShocks(realDt);
+
+  // Caméra
+  cameraTarget(t3);
+  const sm = 1 - Math.exp(-realDt * (attract ? 1.2 : 3.2));
+  camPos.lerp(tgtPos, sm); camLook.lerp(tgtLook, sm);
+  S.shake *= Math.exp(-realDt * 7);
+  const sh = OPT.fx ? S.shake : 0;
+  camera.position.set(camPos.x + (Math.random() - .5) * sh + S.shx * sh * .3, camPos.y + (Math.random() - .5) * sh, camPos.z + (Math.random() - .5) * sh);
+  camera.lookAt(camLook);
+  S.shx *= .9;
+  S.fov = Math.max(0, S.fov - realDt * 1.4);
+  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14; camera.updateProjectionMatrix();
+
+  // Bloom & exposition
+  S.pulse = Math.max(0, S.pulse - realDt * 1.8);
+  S.drainT = Math.max(0, S.drainT - realDt * .8);
+  bloom.strength = .8 + S.pulse * .9;
+  renderer.toneMappingExposure = (G.tilt ? .5 : .95) * (1 - S.drainT * .45) * (G.paused ? .4 : 1);
+  rimA.intensity = 30000 * (1 + S.pulse); rimB.intensity = 30000 * (1 + S.pulse);
+
+  renderer.shadowMap.needsUpdate = true;
+  composer.render();
+
+  // Reflets dynamiques de la bille (1 image sur 2)
+  if (ball.live && (frameNo++ & 1) === 0) {
+    ballMesh.visible = false; trail.visible = false; ballGlow.visible = false;
+    cubeCam.position.copy(ballMesh.position); cubeCam.update(renderer, scene);
+    ballMesh.visible = true; trail.visible = true; ballGlow.visible = true;
+  } else frameNo++;
+}
+function resize3D(k) {
+  renderer.setPixelRatio(k); renderer.setSize(STW, STH, false);
+  composer.setPixelRatio(k); composer.setSize(STW, STH);
+}
+
+/* ---------- Activation ---------- */
+resize3D(K);
+window.R3D = { render: render3D, resize: resize3D };
+applyView();
+window.__pb = { THREE, scene, camera, renderer, bloom };
+</script>
+</body>
+</html>
