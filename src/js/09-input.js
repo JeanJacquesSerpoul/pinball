@@ -17,9 +17,10 @@ function plungeEnd() {
   if (!G.charging) return;
   G.charging = false;
   const p = G.charge; G.charge = 0;
-  if (ball.live && ball.inLane && ball.y > plunger.y1 - 26) {
-    ball.y = Math.min(ball.y, 722 - R - plunger.r - .5);   // le piston revient en position haute
-    ball.vy = -(520 + 1250 * p); SFX.launch(p); fx('launch', p);
+  const b = balls.find(b => b.live && b.inLane && b.y > plunger.y1 - 26);
+  if (b) {
+    b.y = Math.min(b.y, 722 - R - plunger.r - .5);   // le piston revient en position haute
+    b.vy = -(520 + 1250 * p); SFX.launch(p); fx('launch', p);
   }
   plunger.y1 = plunger.y2 = 722;
 }
@@ -61,7 +62,7 @@ function holdEnd(id) {
 }
 function inPlungerZone(e) {
   const r = stage.getBoundingClientRect();
-  return ball.inLane && (e.clientX - r.left) / r.width > .75 && (e.clientY - r.top) / r.height > .6;
+  return balls.some(b => b.live && b.inLane) && (e.clientX - r.left) / r.width > .75 && (e.clientY - r.top) / r.height > .6;
 }
 stage.addEventListener('mousedown', e => {
   e.preventDefault(); audio();

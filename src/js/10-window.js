@@ -57,6 +57,7 @@ function act(a) {
   else if (a === 'fx') toggleOpt('fx', 'optFx');
   else if (a === 'full') toggleFull();
   else if (a.startsWith('q-')) setQuality(a.slice(2));
+  else if (a.startsWith('d-')) setDifficulty(a.slice(2));
   else if (a === 'install' && installPrompt) { installPrompt.prompt(); installPrompt = null; $('optInstall').style.display = 'none'; }
   else if (a === 'help') showHelp();
   else if (a === 'high') showDlg('Meilleurs scores', `<table><tr><td>1.</td><td>Joueur 1</td><td style="text-align:right">${fmt(HIGH)}</td></tr></table>`);
@@ -79,6 +80,8 @@ function showHelp() {
     <tr><td>Affichage 2D / 3D</td><td>F6 (ou menu Options)</td></tr>
     <tr><td>Zoom sur la bille</td><td>F7 (ou menu Options)</td></tr>
     <tr><td>Manette Xbox</td><td>LB / LT = flipper gauche, RB / RT = flipper droit, A = lanceur, X / B / Y = secouer, Menu = pause, Affichage = 2D / 3D, clic stick droit = zoom</td></tr>
+    <tr><td>Rampe</td><td>Entrée à gauche, derrière les cibles. 3 rampes = multibille prête (trou noir) ; pendant le multibille, la rampe rapporte le jackpot</td></tr>
+    <tr><td>Missions</td><td>Acceptez-les en prenant la rampe ou le trou noir ; certaines ont plusieurs étapes ou un chrono</td></tr>
     <tr><td>Souris</td><td>Clic gauche / droit = flipper gauche / droit, clic molette = lanceur</td></tr>
     <tr><td>Tactile</td><td>Moitié gauche/droite = flippers, coin bas-droit = lanceur</td></tr></table>
     <br><b>But :</b> accomplissez les missions pour monter en grade, de Cadet jusqu'à Amiral de la Flotte. Les 3 couloirs du haut augmentent le multiplicateur ; 3 missions = une bille supplémentaire. Attention au TILT !`);

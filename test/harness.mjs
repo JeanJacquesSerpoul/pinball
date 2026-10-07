@@ -46,14 +46,15 @@ export function loadGame({ storage = {} } = {}) {
   const sim = (seconds, { autoplay = false } = {}) => {
     run(`(function(){ for (let i = 0; i < ${Math.round(seconds * 60)}; i++) {
       ${autoplay ? `
-      if (ball.live && ball.y > 640 && ball.y < 715 && ball.vy > -50 && !ball.inLane) { const s = ball.x < 196 ? 'left' : 'right'; keys[s] = true; __hold = 12; }
+      if (__hold === 0 && __cool <= 0 && balls.some(b => b.live && b.y > 640 && b.y < 715 && b.vy > -50 && !b.inLane)) { const b = balls.find(b => b.live && b.y > 640 && b.y < 715 && !b.inLane); keys[b.x < 196 ? 'left' : 'right'] = true; __hold = 12; __cool = 20; }
+      if (__cool > 0) __cool--;
       if (typeof __hold !== 'undefined' && __hold > 0 && --__hold === 0) { keys.left = keys.right = false; }
-      if (ball.live && ball.inLane && !G.charging && ball.y > 700 && Math.abs(ball.vy) < 5) { plungeStart(); __plunge = 40; }
+      if (!G.charging && __plunge === 0 && balls.some(b => b.live && b.inLane && b.y > 700 && Math.abs(b.vy) < 5)) { plungeStart(); __plunge = 40; }
       if (typeof __plunge !== 'undefined' && __plunge > 0 && --__plunge === 0) plungeEnd();
       ` : ''}
       update(1 / 60);
     } })()`);
   };
-  run('var __hold = 0, __plunge = 0;');
+  run('var __hold = 0, __plunge = 0, __cool = 0;');
   return { run, fire, sim, store };
 }

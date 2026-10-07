@@ -62,6 +62,9 @@ function drawArt(c, full) {
   c.save(); c.translate(334, 342); c.rotate(Math.PI / 2); c.fillText('CARBURANT', 0, 0); c.restore();
   c.fillText('SAUVETAGE', 196, 648);
   c.fillText('GRADE', 196, 596);
+  c.fillText('KICK', kickPos[0], kickPos[1] + 18);
+  c.fillText('BILLE+', extraPos[0], extraPos[1] + 17);
+  c.save(); c.translate(48, 322); c.rotate(-Math.PI / 2); c.fillText('VERROUS', 0, 0); c.restore();
   c.font = 'bold 8px Tahoma'; c.fillStyle = 'rgba(255,230,120,.75)';
   multPos.forEach((x, i) => c.fillText('×' + (i + 2), x, 500));
   c.restore();

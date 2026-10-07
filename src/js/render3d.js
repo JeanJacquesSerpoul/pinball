@@ -234,12 +234,47 @@ drops.forEach((d, i) => insert(116, 301 + i * 25, 5, 0xff2a2a, () => !d.on));
 fuels.forEach((f, i) => insert(348, 311 + i * 28, 5, 0xff9010, () => G.fuel[i]));
 insert(196, 632, 7, 0x30ff60, () => G.save > 0 && (G.save > 2 || blink(6)));
 rankPos.forEach(([x, y], i) => insert(x, y, 4.5, 0xff40c8, () => i <= G.rank));
+insert(kickPos[0], kickPos[1], 6, 0x30ff60, () => G.kickback);
+lockPos.forEach(([x, y], i) => insert(x, y, 5, 0xff40c8, () => G.locks > i || (G.locks >= 3 && blink(6))));
+insert(extraPos[0], extraPos[1], 6, 0x30ff60, () => G.extraLit && blink(5));
+lanesPos.forEach((x, i) => insert(x, 95, 3.2, 0xffffff, () => i === G.skillLane && balls.some(b => b.live && b.inLane && b.fromLane) && blink(6)));
 // Flèches d'orbite
 const arrowShape = new THREE.Shape(); arrowShape.moveTo(0, -15); arrowShape.lineTo(10, 6); arrowShape.lineTo(0, 1); arrowShape.lineTo(-10, 6); arrowShape.closePath();
 const arrowMats = [40, 352].map(x => {
   const mat = new THREE.MeshStandardMaterial({ color: 0x050a10, emissive: 0x30e0ff, emissiveIntensity: .1, toneMapped: false });
   const m = extrude(arrowShape, .6, mat); m.position.x += x - 210; m.position.z += 280 - 390; scene.add(m); return mat;
 });
+
+/* ---------- Rampe métallique ---------- */
+{
+  const left = [], right = [], mid = [];
+  RAMP.forEach((p, i) => {
+    const a = RAMP[Math.max(0, i - 1)], b = RAMP[Math.min(RAMP.length - 1, i + 1)];
+    let tx = b.x - a.x, tz = b.y - a.y; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+    const c = V(p.x, p.y, p.h + 3);
+    left.push(c.clone().add(new THREE.Vector3(-tz * 7.5, 0, tx * 7.5)));
+    right.push(c.clone().add(new THREE.Vector3(tz * 7.5, 0, -tx * 7.5)));
+    mid.push(V(p.x, p.y, p.h));
+  });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .15 });
+  [left, right].forEach(pts => { const t = tube(pts, 1.4, railMat); t.castShadow = true; scene.add(t); });
+  // Garde-fous supérieurs dans les virages
+  [left, right].forEach(pts => { const up = pts.map(v => v.clone().add(new THREE.Vector3(0, 9, 0))); const t = tube(up, 1, railMat); scene.add(t); });
+  // Colonnettes de soutien
+  for (let i = 8; i < RAMP.length - 6; i += 14) {
+    const p = RAMP[i]; if (p.h < 6) continue;
+    const m = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.2, p.h + 3, 10), M.darkChrome));
+    m.position.copy(V(p.x, p.y, (p.h + 3) / 2)); scene.add(m);
+  }
+  // Fond translucent coloré sous les rails (effet plastique néon)
+  const geo = new THREE.BufferGeometry(), pos = [], idx = [];
+  left.forEach((l, i) => { pos.push(l.x, l.y - 3.5, l.z, right[i].x, right[i].y - 3.5, right[i].z); if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); } });
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  scene.add(new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: 0x40a0ff, emissive: 0x1060ff, emissiveIntensity: .35, transparent: true, opacity: .28, roughness: .1, side: THREE.DoubleSide, depthWrite: false })));
+  // Entrée lumineuse de la rampe
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(11, 1.4, 8, 24, Math.PI), neonMat(0xff40c8));
+  mouth.position.copy(V(78, 268, 1)); mouth.rotation.x = -Math.PI / 2; scene.add(mouth);
+}
 
 /* ---------- Trou noir (shader) ---------- */
 const vortexMat = new THREE.ShaderMaterial({
@@ -299,6 +334,12 @@ ballGlow.scale.set(60, 60, 1); scene.add(ballGlow);
 const contactTex = canvasTex(64, 64, c => { const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,.85)'); g.addColorStop(.45, 'rgba(0,0,0,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); }, false);
 const contact = new THREE.Mesh(new THREE.PlaneGeometry(26, 26).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }));
 contact.renderOrder = 1; scene.add(contact);
+const extraBalls = Array.from({ length: 4 }, () => {
+  const m = new THREE.Mesh(ballMesh.geometry, ballMesh.material); m.castShadow = true; m.visible = false; scene.add(m);
+  const c = new THREE.Mesh(contact.geometry, contact.material); c.renderOrder = 1; c.visible = false; scene.add(c);
+  return { m, c };
+});
+function capScale(b) { if (!(b.cap > 0)) return 1; const k = Math.min(1, (1.3 - b.cap) / .4), out = Math.max(0, 1 - b.cap / .25); return Math.max(.05, 1 - k + out); }
 let ballFx = 0;   // intensité lissée du halo et de la traînée (évite le scintillement)
 
 // Traînée de comète
@@ -473,6 +514,11 @@ window.FX3D = (type, a, b, c) => {
     case 'nudge': S.shake = Math.max(S.shake, 5); S.shx = a * 6; S.shz = b * 6; break;
     case 'launch': burst(386, 718, 30 + a * 40 | 0, [0xffffff, 0x80c0ff], 180 + a * 200, 6, .5); S.shake = 1 + a * 4; break;
     case 'start': S.startT = 1; fireworks(4); break;
+    case 'ramp': { const e = RAMP[RAMP.length - 1]; burst(e.x, e.y, 40, [0xff40c8, 0x40c8ff], 220, 6); shock(e.x, e.y, 0xff40c8, 60); S.pulse = .8;
+      for (let i = 0; i < RAMP.length; i += 3) { const p = RAMP[i]; spawn(V(p.x, p.y, p.h + 8), _v.set(0, 60, 0), i % 2 ? 0xff40c8 : 0x40c8ff, .6, 0); } break; }
+    case 'jackpot': fireworks(10, [0xffd000, 0xffffff, 0xff8a00]); S.pulse = 1.8; S.shake = 8; S.fov = 1; break;
+    case 'multiball': fireworks(8, [0xff40c8, 0x40c8ff, 0xffffff]); S.pulse = 1.5; S.shake = 6; S.rocketT = 0; S.rocketMode = 1; break;
+    case 'kickback': burst(a, b, 40, [0x30ff60, 0xffffff], 260, 6, 1); shock(a, b, 0x30ff60, 50); S.shake = 5; break;
   }
 };
 
@@ -514,13 +560,12 @@ function render3D(dt, realDt) {
   // Bille
   ballMesh.visible = ball.live;
   if (ball.live) {
-    let sc = 1, sink = 0;
-    if (ball.cap > 0) { const k = Math.min(1, (1.3 - ball.cap) / .4), out = Math.max(0, 1 - ball.cap / .25); sc = Math.max(.05, 1 - k + out); sink = (1 - sc) * 10; }
+    const sc = capScale(ball), sink = (1 - sc) * 10;
     ballMesh.scale.setScalar(sc);
-    ballMesh.position.copy(V(ball.x, ball.y, R * sc - sink));
+    ballMesh.position.copy(V(ball.x, ball.y, R * sc - sink + (ball.h || 0)));
     const sp = Math.hypot(ball.vx, ball.vy);
     ballFx += (Math.min(1, Math.max(0, (sp - 600) / 1000)) - ballFx) * Math.min(1, realDt * 5);
-    contact.position.set(ballMesh.position.x, .35, ballMesh.position.z); contact.scale.setScalar(sc); contact.visible = true;
+    contact.position.set(ballMesh.position.x, .35, ballMesh.position.z); contact.scale.setScalar(sc * (1 + (ball.h || 0) / 30)); contact.material.opacity = 1 / (1 + (ball.h || 0) / 15); contact.visible = true;
     ballGlow.position.copy(ballMesh.position); ballGlow.material.opacity = ballFx * .15 * sc;
     hist.unshift(ballMesh.position.clone()); if (hist.length > TRN) hist.pop();
     const inten = ballFx * 1.1;
@@ -530,6 +575,13 @@ function render3D(dt, realDt) {
     }
   } else { contact.visible = false; hist.length = 0; trailCol.fill(0); ballGlow.material.opacity = 0; ballFx = 0; }
   trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.color.needsUpdate = true;
+  // Autres billes (multibille)
+  const others = balls.filter(b => b.live && b !== ball);
+  extraBalls.forEach((o, i) => {
+    const b = others[i]; o.m.visible = o.c.visible = !!b; if (!b) return;
+    const sc = capScale(b); o.m.scale.setScalar(sc); o.m.position.copy(V(b.x, b.y, R * sc - (1 - sc) * 10 + (b.h || 0)));
+    o.c.position.set(o.m.position.x, .35, o.m.position.z); o.c.scale.setScalar(sc * (1 + (b.h || 0) / 30));
+  });
 
   // Lanceur
   const py = plunger.y1;
@@ -558,7 +610,7 @@ function render3D(dt, realDt) {
   holeRingMat.opacity = (!attract && m.ev === 'hole') ? (.5 + .5 * Math.sin(t3 * 8)) : S.hole > 0 ? 1 : 0;
   // Trou noir
   S.hole = Math.max(0, S.hole - dt);
-  vortexMat.uniforms.uTime.value = t3; vortexMat.uniforms.uBoost.value = S.hole + (ball.cap > 0 ? 1 : 0);
+  vortexMat.uniforms.uTime.value = t3; vortexMat.uniforms.uBoost.value = S.hole + (balls.some(b => b.cap > 0) ? 1 : 0);
   holeLight.intensity = 3000 + S.hole * 20000;
   // Décor
   planetMesh.rotation.y += realDt * .05; rings3D.rotation.z += realDt * .02;
@@ -607,9 +659,9 @@ function render3D(dt, realDt) {
   // Reflets dynamiques de la bille (1 image sur 2)
   frameNo++;
   if (ball.live && frameNo % Q.cubeEvery === 0) {
-    ballMesh.visible = false; trail.visible = false; ballGlow.visible = false;
+    ballMesh.visible = false; trail.visible = false; ballGlow.visible = false; extraBalls.forEach(o => o.m.visible = false);
     cubeCam.position.copy(ballMesh.position); cubeCam.update(renderer, scene);
-    ballMesh.visible = true; trail.visible = true; ballGlow.visible = true;
+    ballMesh.visible = true; trail.visible = true; ballGlow.visible = true; extraBalls.forEach((o, i) => o.m.visible = i < others.length);
   }
 }
 /* ---------- Qualité graphique ---------- */

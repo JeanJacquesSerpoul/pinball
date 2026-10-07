@@ -17,14 +17,14 @@ function hitSeg(s) {
 function onHit(s, v, nx, ny, cx, cy) {
   switch (s.kind) {
     case 'sling':
-      if (v > 50) { ball.vx += nx * 430; ball.vy += ny * 430; s.fl = .12; add(100); G.bonusHits++; SFX.sling(); fx('sling', cx, cy); }
+      if (v > 50) { ball.vx += nx * 430; ball.vy += ny * 430; s.fl = .12; add(100); G.bonusHits++; SFX.sling(); fx('sling', cx, cy); ev('sling'); }
       break;
     case 'drop':
       if (!G.tilt) {
         s.on = false; add(1500); G.bonusHits++; SFX.drop(); ev('drop'); fx('drop', cx, cy);
         if (drops.every(d => !d.on)) {
-          add(25000); msg('CIBLES ABATTUES !', '+25 000', 2); SFX.big(); banner('CIBLES ABATTUES', '#ffd23a', '+25 000');
-          const reset = () => { if (ball.x > 70 && ball.x < 125 && ball.y > 270 && ball.y < 385) later(.5, reset); else drops.forEach(d => d.on = true); };
+          add(25000); msg('CIBLES ABATTUES !', 'Kickback allumé', 2); SFX.big(); banner('CIBLES ABATTUES', '#ffd23a', '+25 000 · KICKBACK'); G.kickback = true;
+          const reset = () => { if (balls.some(b => b.x > 70 && b.x < 125 && b.y > 270 && b.y < 385)) later(.5, reset); else drops.forEach(d => d.on = true); };
           later(1.5, reset);
         }
       }
@@ -59,7 +59,7 @@ function hitBumper(b, i) {
   const vn = ball.vx * nx + ball.vy * ny;
   if (vn < 0) { ball.vx -= 1.6 * vn * nx; ball.vy -= 1.6 * vn * ny; }
   ball.vx += nx * 320; ball.vy += ny * 320;
-  b.fl = .15; add(500); G.bonusHits++; SFX.bump(); ev('bumper');
+  b.fl = .15; add(500); G.jackpot += 250; G.bonusHits++; SFX.bump(); ev('bumper');
   fx('bump', b.x - nx * b.r, b.y - ny * b.r, i);
 }
 function updFlipper(f, pressed, dt) {
@@ -75,6 +75,24 @@ function step(dt) {
   updFlipper(flL, keys.left && canFlip, dt);
   updFlipper(flR, keys.right && canFlip, dt);
   drops.forEach(d => d.cd > 0 && (d.cd -= dt)); fuels.forEach(d => d.cd > 0 && (d.cd -= dt));
+  for (const b of balls.slice()) { ball = b; stepBall(dt); }
+  ballCollisions();
+  ball = balls.find(b => b.live) || balls[0] || ball;
+}
+// Chocs élastiques entre billes (multibille)
+function ballCollisions() {
+  for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {
+    const a = balls[i], b = balls[j];
+    if (!a.live || !b.live || a.cap > 0 || b.cap > 0 || a.ramp || b.ramp) continue;
+    let nx = b.x - a.x, ny = b.y - a.y; const d = Math.hypot(nx, ny);
+    if (d >= 2 * R || d === 0) continue;
+    nx /= d; ny /= d; const o = (2 * R - d) / 2;
+    a.x -= nx * o; a.y -= ny * o; b.x += nx * o; b.y += ny * o;
+    const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+    if (vn < 0) { const k = vn * .95; a.vx += k * nx; a.vy += k * ny; b.vx -= k * nx; b.vy -= k * ny; if (vn < -300) noise(.03, .12, 3000); }
+  }
+}
+function stepBall(dt) {
   if (!ball.live) return;
   if (ball.cap > 0) {
     ball.cap -= dt;
@@ -83,7 +101,20 @@ function step(dt) {
   }
   if (ball.capCd > 0) ball.capCd -= dt;
 
-  ball.vy += GRAV * dt;
+  // Sur la rampe : trajectoire guidée, la bille ralentit en montant et accélère en descendant
+  if (ball.ramp) {
+    const r = ball.ramp, prev = rampAt(r.d);
+    r.v = Math.max(380, Math.min(1500, r.v - (rampAt(r.d + 1).h - prev.h) * GRAV * DIFF().grav * dt * 1.2));
+    r.d += r.v * dt;
+    if (r.d >= RAMP_LEN) {
+      const end = RAMP[RAMP.length - 1];
+      Object.assign(ball, { x: end.x, y: end.y, h: 0, vx: 0, vy: 260, ramp: null });
+      rampDone();
+    } else { const q = rampAt(r.d); ball.vx = (q.x - ball.x) / dt; ball.vy = (q.y - ball.y) / dt; ball.x = q.x; ball.y = q.y; ball.h = q.h; }
+    return;
+  }
+
+  ball.vy += GRAV * DIFF().grav * dt;
   ball.vx *= .99986; ball.vy *= .99986;
   const sp = Math.hypot(ball.vx, ball.vy); if (sp > MAXV) { ball.vx *= MAXV / sp; ball.vy *= MAXV / sp; }
   ball.x += ball.vx * dt; ball.y += ball.vy * dt;
@@ -93,10 +124,19 @@ function step(dt) {
   bumpers.forEach(hitBumper);
   hitFlipper(flL); hitFlipper(flR);
 
-  if (ball.inLane && ball.x < 366) { ball.inLane = false; launched(); }
+  if (ball.inLane && ball.x < 366) { ball.inLane = false; ball.skill = ball.fromLane; launched(); }
+  // Entrée de la rampe (derrière les cibles, côté gauche), bille montante assez rapide
+  if (Math.abs(ball.x - 78) < 16 && Math.abs(ball.y - 262) < 10 && ball.vy < -250) {
+    ball.ramp = { d: 0, v: Math.min(1400, Math.hypot(ball.vx, ball.vy)) }; ball.sens = {};
+    tone(500, .3, 'sawtooth', .05, 1400); return;
+  }
   lanesPos.forEach((lx, i) => sensor('lane' + i, Math.abs(ball.x - lx) < 18 && Math.abs(ball.y - 95) < 12, () => {
     if (G.tilt) return;
     fx('lane', lx, 95);
+    if (ball.skill) {   // tir d'adresse : premier couloir après le lancement = couloir clignotant
+      ball.skill = false;
+      if (i === G.skillLane) { add(25000); banner("TIR D'ADRESSE", '#30e0ff', '+25 000'); msg("TIR D'ADRESSE !", '+25 000', 2); SFX.rank(); }
+    }
     if (!G.lanes[i]) { G.lanes[i] = 1; add(1000); SFX.lane(); ev('lane'); } else { add(500); tone(900, .05, 'sine'); }
     if (G.lanes.every(l => l)) {
       if (G.mult < 5) G.mult++;
@@ -106,17 +146,20 @@ function step(dt) {
   }));
   const orbit = () => {
     if (ball.fromLane) { ball.fromLane = false; add(2500); msg('LANCEMENT RÉUSSI', '+2 500', 1.5); return; }
-    if (G.tilt) return; add(5000); msg('HYPERESPACE !', '+5 000', 1.5); SFX.hyper(); ev('orbit');
-    G.orbitFlash = 1.2; banner('HYPERESPACE', '#38e0ff', '+5 000'); fx('orbit');
+    if (G.tilt) return; add(5000); G.jackpot += 2500; msg('HYPERESPACE !', '+5 000', 1.5); SFX.hyper(); ev('orbit');
+    G.orbitFlash = 1.2; banner('HYPERESPACE', '#38e0ff', '+5 000'); fx('orbit'); majorShot();
   };
   sensor('orbL', ball.x < 52 && ball.y > 170 && ball.y < 250 && ball.vy > 150, orbit);
   sensor('orbR', ball.x > 340 && ball.x < 372 && ball.y > 200 && ball.y < 260 && ball.vy > 150, orbit);
-  if (ball.y > 300 && !ball.inLane) ball.fromLane = false;
+  if (ball.y > 300 && !ball.inLane) { ball.fromLane = false; ball.skill = false; }
+  // Kickback : renvoie la bille qui tombe dans le couloir de sortie gauche (s'il est allumé)
+  if (G.kickback && !G.tilt && ball.x < 50 && ball.y > 625 && ball.vy > 0) {
+    G.kickback = false; ball.y = 625; ball.vx = 30; ball.vy = -1450;
+    banner('KICKBACK', '#3cff6a'); noise(.2, .4, 300); tone(140, .25, 'square', .12, 500); fx('kickback', ball.x, ball.y);
+  }
   if (ball.capCd <= 0 && Math.hypot(ball.x - hole.x, ball.y - hole.y) < 12) {
     ball.cap = 1.3; ball.x = hole.x; ball.y = hole.y; ball.vx = ball.vy = 0;
-    if (!G.tilt) { add(10000); msg('TROU NOIR', '+10 000', 1.6); ev('hole'); G.bonusHits += 3; banner('TROU NOIR', '#c45cff', '+10 000'); }
-    SFX.hole(); fx('hole');
+    holeEntered(); SFX.hole(); fx('hole');
   }
-  if (ball.y > 805) drain();
+  if (ball.y > 805) drainBall(ball);
 }
-

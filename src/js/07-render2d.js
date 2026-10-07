@@ -28,6 +28,11 @@ function render2D() {
   drops.forEach((d, i) => light(116, 301 + i * 25, !d.on, '#ff3b3b', 5));
   fuels.forEach((f, i) => light(348, 311 + i * 28, G.fuel[i], '#ff9a1a', 5));
   light(196, 632, G.save > 0 && (G.save > 2 || blink), '#3cff6a', 7);
+  light(kickPos[0], kickPos[1], G.kickback, '#3cff6a', 6);
+  lockPos.forEach(([x, y], i) => light(x, y, G.locks > i || (G.locks >= 3 && blink), '#ff40c8', 5));
+  light(extraPos[0], extraPos[1], G.extraLit && blink, '#3cff6a', 6);
+  const skilling = balls.some(b => b.live && b.inLane && b.fromLane);
+  if (skilling) light(lanesPos[G.skillLane], 95, blink, '#ffffff', 7);
   rankPos.forEach(([x, y], i) => light(x, y, G.state !== 'attract' && i <= G.rank, '#ff5ad2', 4.5));
   // trou noir
   const hg = ctx.createRadialGradient(hole.x, hole.y, 2, hole.x, hole.y, 26);
@@ -51,11 +56,18 @@ function render2D() {
     ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a); flipPath(f.len);
     ctx.fillStyle = '#e8ecf4'; ctx.fill(); ctx.strokeStyle = '#c4161c'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
   });
-  if (ball.live) {
-    const s = ball.cap > 0 ? Math.max(.25, Math.abs(ball.cap - .65) / .65) : 1, r = R * s;
-    const g = ctx.createRadialGradient(ball.x - r * .4, ball.y - r * .45, r * .1, ball.x, ball.y, r);
+  // Rampe (vue de dessus) : bande translucide bordée de deux rails
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const rampPath = () => { ctx.beginPath(); RAMP.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); };
+  rampPath(); ctx.strokeStyle = 'rgba(120,200,255,.18)'; ctx.lineWidth = 22; ctx.stroke();
+  rampPath(); ctx.strokeStyle = 'rgba(220,235,255,.75)'; ctx.lineWidth = 24; ctx.setLineDash([2, 6]); ctx.stroke(); ctx.setLineDash([]);
+  rampPath(); ctx.strokeStyle = 'rgba(10,20,40,.9)'; ctx.lineWidth = 18; ctx.globalAlpha = .35; ctx.stroke(); ctx.globalAlpha = 1;
+  for (const b of balls) {
+    if (!b.live) continue;
+    const s = (b.cap > 0 ? Math.max(.25, Math.abs(b.cap - .65) / .65) : 1) * (1 + (b.h || 0) / 90), r = R * s;
+    const g = ctx.createRadialGradient(b.x - r * .4, b.y - r * .45, r * .1, b.x, b.y, r);
     g.addColorStop(0, '#fff'); g.addColorStop(.3, '#d0d6e2'); g.addColorStop(.75, '#6b7488'); g.addColorStop(1, '#2c3240');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ball.x, ball.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
   }
   if (G.paused) { ctx.setTransform(K, 0, 0, K, 0, 0); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, TW, TH); }
 }

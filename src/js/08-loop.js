@@ -13,6 +13,14 @@ function update(dt) {
   if (G.orbitFlash > 0) G.orbitFlash -= dt;
   if (G.save > 0 && ball.live && !ball.inLane && ball.cap <= 0) G.save -= dt;
   G.tiltMeter = Math.max(0, G.tiltMeter - dt * .7);
+  if (G.comboT > 0) G.comboT -= dt;
+  // Mission chronométrée
+  if (G.mTime > 0 && !G.pending && G.state === 'play' && !G.tilt) {
+    const before = Math.ceil(G.mTime); G.mTime -= dt;
+    if (G.mTime <= 0) missionFailed(); else if (Math.ceil(G.mTime) !== before && msgT <= 0) idleText();
+  }
+  // Tir d'adresse : le couloir visé change tant que la bille attend dans le lanceur
+  if (balls.some(b => b.live && b.inLane && b.fromLane)) { G.skillT += dt; if (G.skillT > .45) { G.skillT = 0; G.skillLane = (G.skillLane + 1) % 3; } }
   if (msgT > 0 && msgT < 9000) { msgT -= dt; if (msgT <= 0) idleText(); }
   musicAcc += dt; if (musicAcc > .2) { musicAcc = 0; musicTick(); }
 }

@@ -17,6 +17,7 @@ function applyView() {
   $('loading').style.display = OPT.view3d && !window.R3D ? '' : 'none';
   $('optV3d').classList.toggle('chk', OPT.view3d); $('optV2d').classList.toggle('chk', !OPT.view3d);
   $('optZoom').classList.toggle('chk', OPT.zoom);
+  ['easy', 'normal', 'hard'].forEach(d => $('optD' + d).classList.toggle('chk', OPT.diff === d));
   ['auto', 'high', 'medium', 'low'].forEach(q => $('optQ' + q).classList.toggle('chk', OPT.quality === q));
   // Les options de caméra et d'effets ne concernent que la 3D
   ['optCam', 'optFx', 'optQauto', 'optQhigh', 'optQmedium', 'optQlow'].forEach(id => $(id).style.opacity = OPT.view3d ? '' : '.45');
@@ -29,6 +30,13 @@ function setQuality(q) {
   applyView();
   if (window.R3D) window.R3D.applyQuality();
   banner('QUALITÉ ' + QUALITY_NAMES[q], '#38e0ff');
+}
+// Difficulté : la pente et le sauvetage s'appliquent tout de suite, le nombre de billes à la prochaine partie
+function setDifficulty(d) {
+  OPT.diff = d;
+  try { localStorage.setItem('pinballXP.diff', d); } catch (e) { }
+  applyView();
+  banner('DIFFICULTÉ ' + DIFFS[d].name.toUpperCase(), '#ffd23a', DIFFS[d].balls + ' BILLES · SAUVETAGE ' + DIFFS[d].save + ' S');
 }
 function toggleZoom() {
   OPT.zoom = !OPT.zoom; $('optZoom').classList.toggle('chk', OPT.zoom);
