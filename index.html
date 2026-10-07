@@ -1194,12 +1194,13 @@ const spring = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(
 scene.add(spring);
 
 /* ---------- Bille chromée avec reflets temps réel ---------- */
-const cubeRT = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+const cubeRT = new THREE.WebGLCubeRenderTarget(128, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
 const cubeCam = new THREE.CubeCamera(2, 3000, cubeRT); scene.add(cubeCam);
-const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .04, envMap: cubeRT.texture, envMapIntensity: 1.3 }));
+const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .14, envMap: cubeRT.texture, envMapIntensity: 1.1 }));
 ballMesh.castShadow = true; scene.add(ballMesh);
 const ballGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x80c8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
 ballGlow.scale.set(60, 60, 1); scene.add(ballGlow);
+let ballFx = 0;   // intensité lissée du halo et de la traînée (évite le scintillement)
 
 // Traînée de comète
 const TRN = 34, trailPos = new Float32Array(TRN * 3), trailCol = new Float32Array(TRN * 3), hist = [];
@@ -1402,14 +1403,15 @@ function render3D(dt, realDt) {
     ballMesh.scale.setScalar(sc);
     ballMesh.position.copy(V(ball.x, ball.y, R * sc - sink));
     const sp = Math.hypot(ball.vx, ball.vy);
-    ballGlow.position.copy(ballMesh.position); ballGlow.material.opacity = Math.min(.6, Math.max(0, (sp - 700) / 2000)) * sc;
+    ballFx += (Math.min(1, Math.max(0, (sp - 600) / 1000)) - ballFx) * Math.min(1, realDt * 5);
+    ballGlow.position.copy(ballMesh.position); ballGlow.material.opacity = ballFx * .45 * sc;
     hist.unshift(ballMesh.position.clone()); if (hist.length > TRN) hist.pop();
-    const inten = Math.min(1.4, Math.max(0, (sp - 500) / 900));
+    const inten = ballFx * 1.1;
     for (let i = 0; i < TRN; i++) {
       const p = hist[Math.min(i, hist.length - 1)], k = (1 - i / TRN) * inten;
       trailPos.set([p.x, p.y, p.z], i * 3); trailCol.set([.25 * k, .7 * k, 1.4 * k], i * 3);
     }
-  } else { hist.length = 0; trailCol.fill(0); ballGlow.material.opacity = 0; }
+  } else { hist.length = 0; trailCol.fill(0); ballGlow.material.opacity = 0; ballFx = 0; }
   trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.color.needsUpdate = true;
 
   // Lanceur
@@ -1484,11 +1486,12 @@ function render3D(dt, realDt) {
   composer.render();
 
   // Reflets dynamiques de la bille (1 image sur 2)
-  if (ball.live && (frameNo++ & 1) === 0) {
+  frameNo++;
+  if (ball.live) {
     ballMesh.visible = false; trail.visible = false; ballGlow.visible = false;
     cubeCam.position.copy(ballMesh.position); cubeCam.update(renderer, scene);
     ballMesh.visible = true; trail.visible = true; ballGlow.visible = true;
-  } else frameNo++;
+  }
 }
 function resize3D(k) {
   renderer.setPixelRatio(k); renderer.setSize(STW, STH, false);
