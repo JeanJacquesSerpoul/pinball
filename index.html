@@ -62,6 +62,12 @@
     text-shadow:0 0 12px #ff8a00,0 0 40px #ff5a00,3px 4px 0 #000}
   #overlay .o2{margin-top:10px;font:bold 15px Tahoma;color:#fff;text-shadow:0 0 8px #0af,1px 1px 0 #000;animation:blink 1s steps(2) infinite}
   @keyframes blink{50%{opacity:.25}}
+  #replay{position:absolute;left:14px;top:12px;display:none;pointer-events:none;color:#ff3b3b;font:bold 20px "Lucida Console",monospace;
+    text-shadow:0 0 8px #f00,2px 2px 0 #000;animation:blink 1s steps(2) infinite}
+  #replay small{display:block;font:11px Tahoma;color:#fff;text-shadow:1px 1px 0 #000}
+  #stage.replaying canvas{filter:saturate(.55) contrast(1.15) sepia(.25)}
+  #stage.replaying::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px)}
   #loading{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#8af;font:12px Tahoma;pointer-events:none;text-shadow:0 0 6px #04f}
   /* ---------- Panneau ---------- */
   #panel{width:265px;height:780px;background:radial-gradient(ellipse at 50% 0%,#1d2a6b 0%,#080c26 55%,#03040e 100%);
@@ -165,6 +171,8 @@
         <div data-a="v3d" id="optV3d" class="chk">Affichage 3D<span>F6</span></div>
         <hr>
         <div data-a="rumble" id="optRumble" class="chk">Vibrations de la manette</div>
+        <div data-a="replay" id="optReplay" class="chk">Rediffusion des billes perdues</div>
+        <div data-a="slowmo" id="optSlowmo" class="chk">Ralenti dramatique</div>
         <hr>
         <div data-a="cam" id="optCam" class="chk">Caméra dynamique</div>
         <div data-a="zoom" id="optZoom">Zoom sur la bille<span>F7</span></div>
@@ -190,6 +198,7 @@
       <canvas id="table" width="420" height="780"></canvas>
       <canvas id="gl"></canvas>
       <div id="flash"></div>
+      <div id="replay">▶ REDIFFUSION<small>appuyez sur une touche pour passer</small></div>
       <div id="banner"></div>
       <div id="overlay"><div class="o1"></div><div class="o2"></div></div>
       <div id="loading">Chargement du moteur 3D…</div>
@@ -322,14 +331,15 @@ const G = {
   mIdx: 0, prog: 0, need: 1, done: 0, tilt: false, tiltMeter: 0, save: 0, saveArmed: false,
   bonusHits: 0, lanes: [0, 0, 0], fuel: [0, 0, 0], charge: 0, charging: false, t: 0, shake: 0, shakeX: 0, shakeY: 0, orbitFlash: 0,
   step: 0, pending: false, mTime: 0, kickback: true, locks: 0, multi: false, jackpot: 50000, extraLit: false,
-  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3,
+  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3, slow: 0,
 };
 // Billes : « ball » désigne la bille en cours de traitement (ou la bille principale), « balls » toutes les billes en jeu
 function mkBall() { return { x: 386, y: 712, vx: 0, vy: 0, h: 0, inLane: true, fromLane: true, skill: false, cap: 0, capCd: 0, live: false, sens: {}, ramp: null }; }
 let ball = mkBall(), balls = [ball];
 const keys = { left: false, right: false };
-const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal' };
-try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; OPT.diff = localStorage.getItem('pinballXP.diff') || 'normal'; } catch (e) { }
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal', replay: true, slowmo: true };
+try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; OPT.diff = localStorage.getItem('pinballXP.diff') || 'normal';
+  OPT.replay = localStorage.getItem('pinballXP.replay') !== '0'; OPT.slowmo = localStorage.getItem('pinballXP.slowmo') !== '0'; } catch (e) { }
 
 /* Effets visuels : relayés au moteur 3D s'il est chargé */
 function fx(type, a, b, c) {
@@ -368,7 +378,7 @@ function runTimers(dt) {
 }
 
 /* ---------------- Son (WebAudio synthétisé) ---------------- */
-let actx = null, noiseBuf = null;
+let actx = null, noiseBuf = null, PAN = 0;
 function audio() {
   if (!actx) {
     try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
@@ -378,30 +388,39 @@ function audio() {
   if (actx.state === 'suspended') actx.resume();
   return actx;
 }
+// Sortie d'un son : panoramique stéréo selon la position sur la table (PAN, de -1 à 1)
+function out(a, node) {
+  if (PAN && a.createStereoPanner) { const p = a.createStereoPanner(); p.pan.value = PAN; node.connect(p).connect(a.destination); }
+  else node.connect(a.destination);
+}
+// Place les sons suivants à la position x de la table (gauche/droite), le temps d'un appel
+function at(x, fn) { PAN = Math.max(-.9, Math.min(.9, (x - 196) / 190)); try { fn(); } finally { PAN = 0; } }
 function tone(f, d = .08, type = 'square', v = .12, f2, delay = 0) {
   if (!OPT.sound) return; const a = audio(); if (!a) return;
   const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0008, t + d);
-  o.connect(g).connect(a.destination); o.start(t); o.stop(t + d + .03);
+  o.connect(g); out(a, g); o.start(t); o.stop(t + d + .03);
 }
 function noise(d = .05, v = .2, freq = 1800) {
   if (!OPT.sound) return; const a = audio(); if (!a) return;
   const t = a.currentTime, s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
   s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
-  s.connect(f).connect(g).connect(a.destination); s.start(t); s.stop(t + d + .02);
+  s.connect(f).connect(g); out(a, g); s.start(t); s.stop(t + d + .02);
 }
+// Sons de la table : spatialisés à la position de la bille en cours
+const onTable = fn => (...args) => at(ball.x, () => fn(...args));
 const SFX = {
-  flip: () => noise(.06, .35, 900),
-  bump: () => { tone(880, .09, 'square', .1, 330); tone(1320, .05, 'triangle', .06); },
-  sling: () => { tone(520, .07, 'sawtooth', .08, 200); noise(.04, .2, 2500); },
-  drop: () => tone(300, .15, 'square', .1, 90),
-  fuel: () => { tone(660, .06, 'square', .08); tone(990, .08, 'square', .08, null, .06); },
-  lane: () => tone(1500, .1, 'sine', .12, 2200),
-  wall: v => noise(.03, Math.min(.15, v / 4000), 600),
-  launch: p => { noise(.25, .25, 500); tone(120, .3, 'sawtooth', .08 * p + .03, 600); },
-  hole: () => { tone(400, .8, 'sine', .15, 40); tone(200, .8, 'triangle', .1, 30); },
-  eject: () => { noise(.12, .3, 400); tone(90, .2, 'square', .12, 600); },
+  flip: side => at(side === 'L' ? 120 : 272, () => noise(.06, .35, 900)),
+  bump: onTable(() => { tone(880, .09, 'square', .1, 330); tone(1320, .05, 'triangle', .06); }),
+  sling: onTable(() => { tone(520, .07, 'sawtooth', .08, 200); noise(.04, .2, 2500); }),
+  drop: onTable(() => tone(300, .15, 'square', .1, 90)),
+  fuel: onTable(() => { tone(660, .06, 'square', .08); tone(990, .08, 'square', .08, null, .06); }),
+  lane: onTable(() => tone(1500, .1, 'sine', .12, 2200)),
+  wall: onTable(v => noise(.03, Math.min(.15, v / 4000), 600)),
+  launch: p => at(386, () => { noise(.25, .25, 500); tone(120, .3, 'sawtooth', .08 * p + .03, 600); }),
+  hole: () => at(hole.x, () => { tone(400, .8, 'sine', .15, 40); tone(200, .8, 'triangle', .1, 30); }),
+  eject: () => at(hole.x, () => { noise(.12, .3, 400); tone(90, .2, 'square', .12, 600); }),
   drain: () => { [600, 450, 330, 220].forEach((f, i) => tone(f, .18, 'triangle', .14, f * .8, i * .14)); },
   rank: () => { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .18, 'square', .09, null, i * .09)); },
   big: () => { [784, 988, 1175, 1568].forEach((f, i) => tone(f, .14, 'square', .08, null, i * .07)); },
@@ -409,13 +428,44 @@ const SFX = {
   tilt: () => tone(80, .9, 'sawtooth', .18, 50),
   start: () => { [392, 523, 659, 784, 659, 784].forEach((f, i) => tone(f, .14, 'square', .08, null, i * .1)); },
 };
-let musicStep = 0;
-const SEQ = [110, 0, 165, 0, 147, 0, 131, 0, 110, 0, 165, 196, 147, 0, 131, 123];
-function musicTick() {
-  if (!OPT.music || G.paused || G.state !== 'play') return;
-  const f = SEQ[musicStep++ % SEQ.length]; if (f) tone(f, .22, 'triangle', .05);
-}
 
+/* ---------------- Musique d'ambiance générative ----------------
+   Nappes (accords filtrés), basse, arpèges et percussions légères, programmées à l'avance
+   sur l'horloge audio. Plus de couches pendant le multibille et les missions chronométrées. */
+const MUSIC = { next: 0, step: 0, bus: null, BPM: 96 };
+const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [52, 55, 59], [57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 56, 59]];   // La m, Fa, Do, Mi m, La m, Fa, Sol, Mi
+const midi = n => 440 * Math.pow(2, (n - 69) / 12);
+function musicBus(a) {
+  if (!MUSIC.bus) {
+    const g = a.createGain(); g.gain.value = .5;
+    const dl = a.createDelay(1), fb = a.createGain(), wet = a.createGain();   // écho spatial
+    dl.delayTime.value = 60 / MUSIC.BPM * .75; fb.gain.value = .35; wet.gain.value = .3;
+    g.connect(a.destination); g.connect(dl); dl.connect(fb).connect(dl); dl.connect(wet).connect(a.destination);
+    MUSIC.bus = g;
+  }
+  return MUSIC.bus;
+}
+function mNote(a, t, f, dur, type, vol, cutoff, attack = .01) {
+  const o = a.createOscillator(), g = a.createGain(), fl = a.createBiquadFilter();
+  o.type = type; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = cutoff;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
+  o.connect(fl).connect(g).connect(musicBus(a)); o.start(t); o.stop(t + dur + .05);
+}
+function musicTick() {
+  if (!OPT.music || G.paused || G.state !== 'play') { MUSIC.next = 0; return; }
+  const a = audio(); if (!a) return;
+  const sixteenth = 60 / MUSIC.BPM / 4, intense = G.multi || G.mTime > 0;
+  if (MUSIC.next < a.currentTime) MUSIC.next = a.currentTime + .05;
+  while (MUSIC.next < a.currentTime + .4) {
+    const t = MUSIC.next, s = MUSIC.step % 16, chord = CHORDS[Math.floor(MUSIC.step / 16) % CHORDS.length];
+    if (s === 0) chord.forEach((n, i) => { mNote(a, t, midi(n), sixteenth * 17, 'sawtooth', .022, 900, .5); mNote(a, t, midi(n) * 1.004, sixteenth * 17, 'sawtooth', .018, 700, .6); });
+    if (s === 0 || s === 6 || s === 10) mNote(a, t, midi(chord[0] - 24), sixteenth * 3, 'triangle', .09, 400);
+    if (s % 2 === 0 && (intense || s % 4 === 0)) mNote(a, t, midi(chord[(s / 2) % 3] + 12 + (s > 8 ? 12 : 0)), sixteenth * 1.5, 'square', .018, 2400);
+    if (intense && s % 4 === 2 && noiseBuf) { const n = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); n.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 7000; g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.001, t + .06); n.connect(f).connect(g).connect(musicBus(a)); n.start(t); n.stop(t + .08); }
+    if (intense && (s === 0 || s === 8)) mNote(a, t, 55, .25, 'sine', .25, 200);
+    MUSIC.next += sixteenth; MUSIC.step++;
+  }
+}
 /* ---------------- Interface (panneau) ---------------- */
 const $ = id => document.getElementById(id);
 let msgT = 0, lastScore = -1;
@@ -977,12 +1027,61 @@ function update(dt) {
   if (msgT > 0 && msgT < 9000) { msgT -= dt; if (msgT <= 0) idleText(); }
   musicAcc += dt; if (musicAcc > .2) { musicAcc = 0; musicTick(); }
 }
+
+/* ----- Ralenti dramatique : la dernière bille file droit vers la sortie entre les flippers ----- */
+function checkSlowmo() {
+  if (!OPT.slowmo || G.state !== 'play' || G.tilt || G.save > 0 || G.slow > 0) return;
+  const live = balls.filter(b => b.live);
+  const b = live.length === 1 && live[0];
+  if (b && !b.slowDone && b.y > 680 && b.y < 720 && Math.abs(b.x - 196) < 22 && b.vy > 150) {
+    b.slowDone = true; G.slow = .9; fx('slowmo'); tone(70, .9, 'sine', .2, 40);
+  }
+}
+
+/* ----- Rediffusion des dernières secondes après la perte d'une bille ----- */
+const REPLAY = { buf: [], active: false, pos: 0, frames: null };
+function snapshot() {
+  return {
+    balls: balls.filter(b => b.live).map(b => ({ x: b.x, y: b.y, h: b.h || 0, cap: b.cap, vx: b.vx, vy: b.vy })),
+    fl: flL.a, fr: flR.a, bf: bumpers.map(b => b.fl), sf: slings.map(s => s.fl), drops: drops.map(d => d.on), py: plunger.y1,
+  };
+}
+function startReplay() {
+  if (!OPT.replay || REPLAY.buf.length < 90) return;
+  REPLAY.frames = REPLAY.buf.slice(-150); REPLAY.buf = []; REPLAY.active = true; REPLAY.pos = 0;
+  $('replay').style.display = 'block'; $('stage').classList.add('replaying');
+}
+function endReplay() {
+  REPLAY.active = false; REPLAY.frames = null;
+  $('replay').style.display = 'none'; $('stage').classList.remove('replaying');
+}
+// Affiche une image de la rediffusion en remplaçant temporairement l'état réel du jeu
+function renderReplayFrame(dt, draw) {
+  REPLAY.pos += dt * 60 * .45;
+  const f = REPLAY.frames[Math.floor(REPLAY.pos)];
+  if (!f) { endReplay(); return draw(); }
+  const real = { balls, ball, fl: flL.a, fr: flR.a, bf: bumpers.map(b => b.fl), sf: slings.map(s => s.fl), drops: drops.map(d => d.on), py: plunger.y1 };
+  balls = f.balls.map(o => Object.assign(mkBall(), o, { live: true, inLane: false })); ball = balls[0] || real.ball;
+  flL.a = f.fl; flR.a = f.fr; bumpers.forEach((b, i) => b.fl = f.bf[i]); slings.forEach((s, i) => s.fl = f.sf[i]); drops.forEach((d, i) => d.on = f.drops[i]); plunger.y1 = plunger.y2 = f.py;
+  try { draw(); } finally {
+    balls = real.balls; ball = real.ball; flL.a = real.fl; flR.a = real.fr;
+    bumpers.forEach((b, i) => b.fl = real.bf[i]); slings.forEach((s, i) => s.fl = real.sf[i]); drops.forEach((d, i) => d.on = real.drops[i]); plunger.y1 = plunger.y2 = real.py;
+  }
+}
+window.onBallLost = () => later(.6, startReplay);
+
 function frame(now) {
   let dt = Math.min(.05, (now - last) / 1000); last = now;
-  const run = !G.paused && !minimized;
-  if (run) update(dt);
+  const run = !G.paused && !minimized && !REPLAY.active;
+  let gdt = dt;
+  if (G.slow > 0) { G.slow -= dt; gdt = dt * .3; }
+  if (run) {
+    checkSlowmo(); update(gdt);
+    if (G.state === 'play') { REPLAY.buf.push(snapshot()); if (REPLAY.buf.length > 240) REPLAY.buf.shift(); }
+  }
   pollPad();
-  if (!minimized) { if (window.R3D && OPT.view3d) window.R3D.render(run ? dt : 0, dt); else render2D(); }
+  const draw = () => { if (window.R3D && OPT.view3d) window.R3D.render(run || REPLAY.active ? gdt * (REPLAY.active ? .45 : 1) : 0, dt); else render2D(); };
+  if (!minimized) { if (REPLAY.active) renderReplayFrame(dt, draw); else draw(); }
   updPanel();
   requestAnimationFrame(frame);
 }
@@ -993,7 +1092,7 @@ function flip(side, down) {
   if (keys[k] === down) return;
   keys[k] = down;
   if (down && G.state === 'play' && !G.tilt && !G.paused) {
-    SFX.flip();
+    SFX.flip(side);
     if (side === 'L') G.lanes.push(G.lanes.shift()); else G.lanes.unshift(G.lanes.pop());
   }
 }
@@ -1015,6 +1114,7 @@ function plungeEnd() {
 }
 const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
 addEventListener('keydown', e => {
+  if (REPLAY.active) { e.preventDefault(); endReplay(); return; }   // une touche passe la rediffusion
   if (dlgOpen) { if (e.code === 'Enter' || e.code === 'Escape') closeDlg(); e.preventDefault(); return; }
   const c = e.code;
   if (c === 'F2') { e.preventDefault(); newGame(); return; }
@@ -1055,6 +1155,7 @@ function inPlungerZone(e) {
 }
 stage.addEventListener('mousedown', e => {
   e.preventDefault(); audio();
+  if (REPLAY.active) { endReplay(); return; }
   if (G.state !== 'play') { if (e.button === 0) newGame(); return; }
   const role = e.button === 2 ? 'R' : e.button === 1 ? 'P' : e.button === 0 ? (inPlungerZone(e) ? 'P' : 'L') : null;
   if (role) holdStart('m' + e.button, role);
@@ -1063,6 +1164,7 @@ addEventListener('mouseup', e => holdEnd('m' + e.button));   // relâché même 
 stage.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;                      // la souris passe par mousedown
   e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (_) { } audio();
+  if (REPLAY.active) { endReplay(); return; }
   if (G.state !== 'play') { newGame(); return; }
   const r = stage.getBoundingClientRect();
   holdStart('p' + e.pointerId, inPlungerZone(e) ? 'P' : (e.clientX - r.left) / r.width < .5 ? 'L' : 'R');
@@ -1089,6 +1191,7 @@ function pollPad() {
       start: padPressed(B[9]), back: padPressed(B[8]), rs: padPressed(B[11]),
     };
     const edge = k => state[k] && !prev[k], id = 'g' + gp.index;
+    if (REPLAY.active && Object.keys(state).some(edge)) { endReplay(); Object.assign(prev, state); continue; }
     if (!dlgOpen) {
       ['L', 'R'].forEach(k => { if (edge(k) && G.state === 'play') holdStart(id + k, k); else if (!state[k] && prev[k]) holdEnd(id + k); });
       if (edge('A')) holdStart(id + 'A', 'P'); else if (!state.A && prev.A) holdEnd(id + 'A');
@@ -1167,6 +1270,8 @@ function act(a) {
   else if (a === 'v2d') setView(false);
   else if (a === 'v3d') setView(true);
   else if (a === 'cam') toggleOpt('cam', 'optCam');
+  else if (a === 'replay') { toggleOpt('replay', 'optReplay'); try { localStorage.setItem('pinballXP.replay', OPT.replay ? '1' : '0'); } catch (e) { } }
+  else if (a === 'slowmo') { toggleOpt('slowmo', 'optSlowmo'); try { localStorage.setItem('pinballXP.slowmo', OPT.slowmo ? '1' : '0'); } catch (e) { } }
   else if (a === 'rumble') { toggleOpt('rumble', 'optRumble'); rumble(200, .5, .5); }
   else if (a === 'zoom') toggleZoom();
   else if (a === 'fx') toggleOpt('fx', 'optFx');
@@ -1223,6 +1328,7 @@ function applyView() {
   $('loading').style.display = OPT.view3d && !window.R3D ? '' : 'none';
   $('optV3d').classList.toggle('chk', OPT.view3d); $('optV2d').classList.toggle('chk', !OPT.view3d);
   $('optZoom').classList.toggle('chk', OPT.zoom);
+  $('optReplay').classList.toggle('chk', OPT.replay); $('optSlowmo').classList.toggle('chk', OPT.slowmo);
   ['easy', 'normal', 'hard'].forEach(d => $('optD' + d).classList.toggle('chk', OPT.diff === d));
   ['auto', 'high', 'medium', 'low'].forEach(q => $('optQ' + q).classList.toggle('chk', OPT.quality === q));
   // Les options de caméra et d'effets ne concernent que la 3D
@@ -1416,16 +1522,55 @@ cab(34, 4, 940, -217, 48, 40, M.chrome); cab(34, 4, 940, 217, 48, 40, M.chrome);
 const lockbar = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 470, 32).rotateZ(Math.PI / 2), M.chrome);
 lockbar.position.set(0, 52, 460); scene.add(lockbar);
 // Tablier (apron) imprimé
-const apronTex = canvasTex(704, 130, (c, w, h) => {
-  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#1a1f4a'); g.addColorStop(1, '#06081c'); c.fillStyle = g; c.fillRect(0, 0, w, h);
-  c.strokeStyle = '#ffb020'; c.lineWidth = 4; c.strokeRect(6, 6, w - 12, h - 12);
-  c.textAlign = 'center'; c.font = 'italic 900 52px "Arial Black",Impact'; c.fillStyle = '#ffd23a'; c.shadowColor = '#ff6a00'; c.shadowBlur = 18;
-  c.fillText('SPACE CADET', w / 2, 72); c.shadowBlur = 0;
-  c.font = 'bold 20px Tahoma'; c.fillStyle = '#8fd8ff'; c.fillText('3D PINBALL  ·  BILLE SPATIALE', w / 2, 108);
-});
+// Afficheur à points (« DMD ») intégré au tablier : messages, missions et score
+const DMD_W = 128, DMD_H = 24;
+const dmdSrc = document.createElement('canvas'); dmdSrc.width = DMD_W; dmdSrc.height = DMD_H;
+const dmdCtx = dmdSrc.getContext('2d', { willReadFrequently: true });
+const apronTex = canvasTex(704, 130, () => { });
+const apronCtx = apronTex.image.getContext('2d');
+let dmdKey = '', dmdT = 0;
+function dmdLines() {
+  const up = s => (s || '').toUpperCase();
+  if (REPLAY.active) return [['REDIFFUSION', 1], [fmt(G.score), 0]];
+  if (G.paused) return [['PAUSE', 1], ['F3 POUR REPRENDRE', 0]];
+  if (G.state !== 'play') {
+    const k = Math.floor(t3 / 2.5) % 3;
+    return k === 0 ? [['3D PINBALL', 1], ['SPACE CADET', 0]] : k === 1 ? [['RECORD', 0], [fmt(HIGH), 1]] : [[G.state === 'over' ? 'PARTIE TERMINÉE' : 'APPUYEZ SUR', 0], [G.state === 'over' ? fmt(G.score) : 'F2 OU ESPACE', 0]];
+  }
+  if (msgT > 0 && msgT < 9000) return [[up($('msg1').textContent), 0], [up(($('msg2').textContent || '').split('\n')[0]), 0]];
+  return [[fmt(G.score), 1], [G.mTime > 0 ? `${up(mission().name)} ${Math.ceil(G.mTime)}S` : `BILLE ${G.ball}  ${up(RANKS[G.rank])}`, 0]];
+}
+function drawDMD() {
+  const lines = dmdLines(), key = JSON.stringify(lines) + Math.floor(t3 * 8);
+  if (key === dmdKey) return; dmdKey = key;
+  const c = dmdCtx; c.fillStyle = '#000'; c.fillRect(0, 0, DMD_W, DMD_H); c.fillStyle = '#fff'; c.textBaseline = 'middle';
+  lines.forEach(([txt, bold], i) => {
+    c.font = (bold ? 'bold 11px' : '9px') + ' "Lucida Console","Courier New",monospace';
+    const w = c.measureText(txt).width, y = i ? 18 : 6;
+    let x = (DMD_W - w) / 2;
+    if (w > DMD_W - 4) x = 2 - ((t3 * 40) % (w + 30)) + 20;   // défilement des textes trop longs
+    c.fillText(txt, x, y);
+  });
+  const px = c.getImageData(0, 0, DMD_W, DMD_H).data;
+  const a = apronCtx, W = 704, H = 130;
+  const g = a.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1a1f4a'); g.addColorStop(1, '#06081c'); a.fillStyle = g; a.fillRect(0, 0, W, H);
+  a.strokeStyle = '#ffb020'; a.lineWidth = 4; a.strokeRect(6, 6, W - 12, H - 12);
+  a.fillStyle = '#050100'; a.fillRect(86, 12, 532, 106);
+  const pitch = 4.1, ox = 90, oy = 16;
+  for (let y = 0; y < DMD_H; y++) for (let x = 0; x < DMD_W; x++) {
+    const v = px[(y * DMD_W + x) * 4];
+    a.fillStyle = v > 110 ? '#ff8a1e' : v > 40 ? '#7a3a0a' : '#2a1204';
+    a.fillRect(ox + x * pitch, oy + y * pitch, 3.1, 3.1);
+  }
+  a.font = 'italic 900 22px "Arial Black",Impact'; a.fillStyle = '#ffd23a'; a.textAlign = 'center';
+  a.save(); a.translate(46, 65); a.rotate(-Math.PI / 2); a.fillText('SPACE', 0, 8); a.restore();
+  a.save(); a.translate(658, 65); a.rotate(Math.PI / 2); a.fillText('CADET', 0, 8); a.restore();
+  apronTex.needsUpdate = true;
+}
 const apronMat = new THREE.MeshPhysicalMaterial({ map: apronTex, emissive: 0xffffff, emissiveMap: apronTex, emissiveIntensity: .6, roughness: .3, clearcoat: 1 });
 const apron = shadowed(new THREE.Mesh(new THREE.BoxGeometry(352, 22, 66), [M.wall, M.wall, apronMat, M.wall, M.wall, M.wall]));
 apron.position.copy(V(196, 776, 11)); scene.add(apron);
+apronMat.emissiveIntensity = 1;
 
 /* ---------- Slingshots ---------- */
 const slingMeshes = slings.map((s, i) => {
@@ -1788,6 +1933,7 @@ window.FX3D = (type, a, b, c) => {
     case 'nudge': S.shake = Math.max(S.shake, 5); S.shx = a * 6; S.shz = b * 6; break;
     case 'launch': burst(386, 718, 30 + a * 40 | 0, [0xffffff, 0x80c0ff], 180 + a * 200, 6, .5); S.shake = 1 + a * 4; break;
     case 'start': S.startT = 1; fireworks(4); break;
+    case 'slowmo': S.slow = 1; break;
     case 'ramp': { const e = RAMP[RAMP.length - 1]; burst(e.x, e.y, 40, [0xff40c8, 0x40c8ff], 220, 6); shock(e.x, e.y, 0xff40c8, 60); S.pulse = .8;
       for (let i = 0; i < RAMP.length; i += 3) { const p = RAMP[i]; spawn(V(p.x, p.y, p.h + 8), _v.set(0, 60, 0), i % 2 ? 0xff40c8 : 0x40c8ff, .6, 0); } break; }
     case 'jackpot': fireworks(10, [0xffd000, 0xffffff, 0xff8a00]); S.pulse = 1.8; S.shake = 8; S.fov = 1; break;
@@ -1817,8 +1963,8 @@ function cameraTarget(t) {
   }
   const f = OPT.cam ? Math.min(1, Math.max(0, (by - 120) / 600)) : .75;
   const fx_ = OPT.cam ? (bx - 210) * .12 : 0;
-  tgtPos.set(fx_ * .6, 850 - f * 30, 715 + f * 20);
-  tgtLook.set(fx_, 0, -135 + f * 55);
+  tgtPos.set(fx_ * .6, 900 - f * 20, 790 + f * 15);   // cadrage : toute la table, tablier (afficheur) compris
+  tgtLook.set(fx_, 0, -40 + f * 40);
 }
 
 /* ---------- Boucle de rendu 3D ---------- */
@@ -1829,6 +1975,7 @@ function render3D(dt, realDt) {
   const t = G.t;
   const attract = G.state !== 'play';
 
+  dmdT += realDt; if (dmdT > .1) { dmdT = 0; drawDMD(); }
   // Flippers
   flipObjs.forEach(o => o.g.rotation.y = -o.f.a);
   // Bille
@@ -1916,7 +2063,8 @@ function render3D(dt, realDt) {
   camera.lookAt(camLook);
   S.shx *= .9;
   S.fov = Math.max(0, S.fov - realDt * 1.4);
-  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14; camera.updateProjectionMatrix();
+  S.slow = Math.max(0, (S.slow || 0) - realDt * 1.1);
+  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14 - Math.sin(Math.min(1, S.slow) * Math.PI) * 9; camera.updateProjectionMatrix();
 
   // Bloom & exposition
   S.pulse = Math.max(0, S.pulse - realDt * 1.8);

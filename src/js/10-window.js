@@ -52,6 +52,8 @@ function act(a) {
   else if (a === 'v2d') setView(false);
   else if (a === 'v3d') setView(true);
   else if (a === 'cam') toggleOpt('cam', 'optCam');
+  else if (a === 'replay') { toggleOpt('replay', 'optReplay'); try { localStorage.setItem('pinballXP.replay', OPT.replay ? '1' : '0'); } catch (e) { } }
+  else if (a === 'slowmo') { toggleOpt('slowmo', 'optSlowmo'); try { localStorage.setItem('pinballXP.slowmo', OPT.slowmo ? '1' : '0'); } catch (e) { } }
   else if (a === 'rumble') { toggleOpt('rumble', 'optRumble'); rumble(200, .5, .5); }
   else if (a === 'zoom') toggleZoom();
   else if (a === 'fx') toggleOpt('fx', 'optFx');

@@ -4,7 +4,7 @@ function flip(side, down) {
   if (keys[k] === down) return;
   keys[k] = down;
   if (down && G.state === 'play' && !G.tilt && !G.paused) {
-    SFX.flip();
+    SFX.flip(side);
     if (side === 'L') G.lanes.push(G.lanes.shift()); else G.lanes.unshift(G.lanes.pop());
   }
 }
@@ -26,6 +26,7 @@ function plungeEnd() {
 }
 const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
 addEventListener('keydown', e => {
+  if (REPLAY.active) { e.preventDefault(); endReplay(); return; }   // une touche passe la rediffusion
   if (dlgOpen) { if (e.code === 'Enter' || e.code === 'Escape') closeDlg(); e.preventDefault(); return; }
   const c = e.code;
   if (c === 'F2') { e.preventDefault(); newGame(); return; }
@@ -66,6 +67,7 @@ function inPlungerZone(e) {
 }
 stage.addEventListener('mousedown', e => {
   e.preventDefault(); audio();
+  if (REPLAY.active) { endReplay(); return; }
   if (G.state !== 'play') { if (e.button === 0) newGame(); return; }
   const role = e.button === 2 ? 'R' : e.button === 1 ? 'P' : e.button === 0 ? (inPlungerZone(e) ? 'P' : 'L') : null;
   if (role) holdStart('m' + e.button, role);
@@ -74,6 +76,7 @@ addEventListener('mouseup', e => holdEnd('m' + e.button));   // relâché même 
 stage.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;                      // la souris passe par mousedown
   e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (_) { } audio();
+  if (REPLAY.active) { endReplay(); return; }
   if (G.state !== 'play') { newGame(); return; }
   const r = stage.getBoundingClientRect();
   holdStart('p' + e.pointerId, inPlungerZone(e) ? 'P' : (e.clientX - r.left) / r.width < .5 ? 'L' : 'R');
@@ -100,6 +103,7 @@ function pollPad() {
       start: padPressed(B[9]), back: padPressed(B[8]), rs: padPressed(B[11]),
     };
     const edge = k => state[k] && !prev[k], id = 'g' + gp.index;
+    if (REPLAY.active && Object.keys(state).some(edge)) { endReplay(); Object.assign(prev, state); continue; }
     if (!dlgOpen) {
       ['L', 'R'].forEach(k => { if (edge(k) && G.state === 'play') holdStart(id + k, k); else if (!state[k] && prev[k]) holdEnd(id + k); });
       if (edge('A')) holdStart(id + 'A', 'P'); else if (!state.A && prev.A) holdEnd(id + 'A');

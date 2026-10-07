@@ -142,16 +142,55 @@ cab(34, 4, 940, -217, 48, 40, M.chrome); cab(34, 4, 940, 217, 48, 40, M.chrome);
 const lockbar = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 470, 32).rotateZ(Math.PI / 2), M.chrome);
 lockbar.position.set(0, 52, 460); scene.add(lockbar);
 // Tablier (apron) imprimé
-const apronTex = canvasTex(704, 130, (c, w, h) => {
-  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#1a1f4a'); g.addColorStop(1, '#06081c'); c.fillStyle = g; c.fillRect(0, 0, w, h);
-  c.strokeStyle = '#ffb020'; c.lineWidth = 4; c.strokeRect(6, 6, w - 12, h - 12);
-  c.textAlign = 'center'; c.font = 'italic 900 52px "Arial Black",Impact'; c.fillStyle = '#ffd23a'; c.shadowColor = '#ff6a00'; c.shadowBlur = 18;
-  c.fillText('SPACE CADET', w / 2, 72); c.shadowBlur = 0;
-  c.font = 'bold 20px Tahoma'; c.fillStyle = '#8fd8ff'; c.fillText('3D PINBALL  ·  BILLE SPATIALE', w / 2, 108);
-});
+// Afficheur à points (« DMD ») intégré au tablier : messages, missions et score
+const DMD_W = 128, DMD_H = 24;
+const dmdSrc = document.createElement('canvas'); dmdSrc.width = DMD_W; dmdSrc.height = DMD_H;
+const dmdCtx = dmdSrc.getContext('2d', { willReadFrequently: true });
+const apronTex = canvasTex(704, 130, () => { });
+const apronCtx = apronTex.image.getContext('2d');
+let dmdKey = '', dmdT = 0;
+function dmdLines() {
+  const up = s => (s || '').toUpperCase();
+  if (REPLAY.active) return [['REDIFFUSION', 1], [fmt(G.score), 0]];
+  if (G.paused) return [['PAUSE', 1], ['F3 POUR REPRENDRE', 0]];
+  if (G.state !== 'play') {
+    const k = Math.floor(t3 / 2.5) % 3;
+    return k === 0 ? [['3D PINBALL', 1], ['SPACE CADET', 0]] : k === 1 ? [['RECORD', 0], [fmt(HIGH), 1]] : [[G.state === 'over' ? 'PARTIE TERMINÉE' : 'APPUYEZ SUR', 0], [G.state === 'over' ? fmt(G.score) : 'F2 OU ESPACE', 0]];
+  }
+  if (msgT > 0 && msgT < 9000) return [[up($('msg1').textContent), 0], [up(($('msg2').textContent || '').split('\n')[0]), 0]];
+  return [[fmt(G.score), 1], [G.mTime > 0 ? `${up(mission().name)} ${Math.ceil(G.mTime)}S` : `BILLE ${G.ball}  ${up(RANKS[G.rank])}`, 0]];
+}
+function drawDMD() {
+  const lines = dmdLines(), key = JSON.stringify(lines) + Math.floor(t3 * 8);
+  if (key === dmdKey) return; dmdKey = key;
+  const c = dmdCtx; c.fillStyle = '#000'; c.fillRect(0, 0, DMD_W, DMD_H); c.fillStyle = '#fff'; c.textBaseline = 'middle';
+  lines.forEach(([txt, bold], i) => {
+    c.font = (bold ? 'bold 11px' : '9px') + ' "Lucida Console","Courier New",monospace';
+    const w = c.measureText(txt).width, y = i ? 18 : 6;
+    let x = (DMD_W - w) / 2;
+    if (w > DMD_W - 4) x = 2 - ((t3 * 40) % (w + 30)) + 20;   // défilement des textes trop longs
+    c.fillText(txt, x, y);
+  });
+  const px = c.getImageData(0, 0, DMD_W, DMD_H).data;
+  const a = apronCtx, W = 704, H = 130;
+  const g = a.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1a1f4a'); g.addColorStop(1, '#06081c'); a.fillStyle = g; a.fillRect(0, 0, W, H);
+  a.strokeStyle = '#ffb020'; a.lineWidth = 4; a.strokeRect(6, 6, W - 12, H - 12);
+  a.fillStyle = '#050100'; a.fillRect(86, 12, 532, 106);
+  const pitch = 4.1, ox = 90, oy = 16;
+  for (let y = 0; y < DMD_H; y++) for (let x = 0; x < DMD_W; x++) {
+    const v = px[(y * DMD_W + x) * 4];
+    a.fillStyle = v > 110 ? '#ff8a1e' : v > 40 ? '#7a3a0a' : '#2a1204';
+    a.fillRect(ox + x * pitch, oy + y * pitch, 3.1, 3.1);
+  }
+  a.font = 'italic 900 22px "Arial Black",Impact'; a.fillStyle = '#ffd23a'; a.textAlign = 'center';
+  a.save(); a.translate(46, 65); a.rotate(-Math.PI / 2); a.fillText('SPACE', 0, 8); a.restore();
+  a.save(); a.translate(658, 65); a.rotate(Math.PI / 2); a.fillText('CADET', 0, 8); a.restore();
+  apronTex.needsUpdate = true;
+}
 const apronMat = new THREE.MeshPhysicalMaterial({ map: apronTex, emissive: 0xffffff, emissiveMap: apronTex, emissiveIntensity: .6, roughness: .3, clearcoat: 1 });
 const apron = shadowed(new THREE.Mesh(new THREE.BoxGeometry(352, 22, 66), [M.wall, M.wall, apronMat, M.wall, M.wall, M.wall]));
 apron.position.copy(V(196, 776, 11)); scene.add(apron);
+apronMat.emissiveIntensity = 1;
 
 /* ---------- Slingshots ---------- */
 const slingMeshes = slings.map((s, i) => {
@@ -514,6 +553,7 @@ window.FX3D = (type, a, b, c) => {
     case 'nudge': S.shake = Math.max(S.shake, 5); S.shx = a * 6; S.shz = b * 6; break;
     case 'launch': burst(386, 718, 30 + a * 40 | 0, [0xffffff, 0x80c0ff], 180 + a * 200, 6, .5); S.shake = 1 + a * 4; break;
     case 'start': S.startT = 1; fireworks(4); break;
+    case 'slowmo': S.slow = 1; break;
     case 'ramp': { const e = RAMP[RAMP.length - 1]; burst(e.x, e.y, 40, [0xff40c8, 0x40c8ff], 220, 6); shock(e.x, e.y, 0xff40c8, 60); S.pulse = .8;
       for (let i = 0; i < RAMP.length; i += 3) { const p = RAMP[i]; spawn(V(p.x, p.y, p.h + 8), _v.set(0, 60, 0), i % 2 ? 0xff40c8 : 0x40c8ff, .6, 0); } break; }
     case 'jackpot': fireworks(10, [0xffd000, 0xffffff, 0xff8a00]); S.pulse = 1.8; S.shake = 8; S.fov = 1; break;
@@ -543,8 +583,8 @@ function cameraTarget(t) {
   }
   const f = OPT.cam ? Math.min(1, Math.max(0, (by - 120) / 600)) : .75;
   const fx_ = OPT.cam ? (bx - 210) * .12 : 0;
-  tgtPos.set(fx_ * .6, 850 - f * 30, 715 + f * 20);
-  tgtLook.set(fx_, 0, -135 + f * 55);
+  tgtPos.set(fx_ * .6, 900 - f * 20, 790 + f * 15);   // cadrage : toute la table, tablier (afficheur) compris
+  tgtLook.set(fx_, 0, -40 + f * 40);
 }
 
 /* ---------- Boucle de rendu 3D ---------- */
@@ -555,6 +595,7 @@ function render3D(dt, realDt) {
   const t = G.t;
   const attract = G.state !== 'play';
 
+  dmdT += realDt; if (dmdT > .1) { dmdT = 0; drawDMD(); }
   // Flippers
   flipObjs.forEach(o => o.g.rotation.y = -o.f.a);
   // Bille
@@ -642,7 +683,8 @@ function render3D(dt, realDt) {
   camera.lookAt(camLook);
   S.shx *= .9;
   S.fov = Math.max(0, S.fov - realDt * 1.4);
-  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14; camera.updateProjectionMatrix();
+  S.slow = Math.max(0, (S.slow || 0) - realDt * 1.1);
+  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14 - Math.sin(Math.min(1, S.slow) * Math.PI) * 9; camera.updateProjectionMatrix();
 
   // Bloom & exposition
   S.pulse = Math.max(0, S.pulse - realDt * 1.8);

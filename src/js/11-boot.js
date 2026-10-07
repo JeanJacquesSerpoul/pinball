@@ -17,6 +17,7 @@ function applyView() {
   $('loading').style.display = OPT.view3d && !window.R3D ? '' : 'none';
   $('optV3d').classList.toggle('chk', OPT.view3d); $('optV2d').classList.toggle('chk', !OPT.view3d);
   $('optZoom').classList.toggle('chk', OPT.zoom);
+  $('optReplay').classList.toggle('chk', OPT.replay); $('optSlowmo').classList.toggle('chk', OPT.slowmo);
   ['easy', 'normal', 'hard'].forEach(d => $('optD' + d).classList.toggle('chk', OPT.diff === d));
   ['auto', 'high', 'medium', 'low'].forEach(q => $('optQ' + q).classList.toggle('chk', OPT.quality === q));
   // Les options de caméra et d'effets ne concernent que la 3D

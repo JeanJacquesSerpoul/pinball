@@ -92,14 +92,15 @@ const G = {
   mIdx: 0, prog: 0, need: 1, done: 0, tilt: false, tiltMeter: 0, save: 0, saveArmed: false,
   bonusHits: 0, lanes: [0, 0, 0], fuel: [0, 0, 0], charge: 0, charging: false, t: 0, shake: 0, shakeX: 0, shakeY: 0, orbitFlash: 0,
   step: 0, pending: false, mTime: 0, kickback: true, locks: 0, multi: false, jackpot: 50000, extraLit: false,
-  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3,
+  combo: 0, comboT: 0, skillLane: 0, skillT: 0, maxBalls: 3, slow: 0,
 };
 // Billes : « ball » désigne la bille en cours de traitement (ou la bille principale), « balls » toutes les billes en jeu
 function mkBall() { return { x: 386, y: 712, vx: 0, vy: 0, h: 0, inLane: true, fromLane: true, skill: false, cap: 0, capCd: 0, live: false, sens: {}, ramp: null }; }
 let ball = mkBall(), balls = [ball];
 const keys = { left: false, right: false };
-const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal' };
-try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; OPT.diff = localStorage.getItem('pinballXP.diff') || 'normal'; } catch (e) { }
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal', replay: true, slowmo: true };
+try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; OPT.diff = localStorage.getItem('pinballXP.diff') || 'normal';
+  OPT.replay = localStorage.getItem('pinballXP.replay') !== '0'; OPT.slowmo = localStorage.getItem('pinballXP.slowmo') !== '0'; } catch (e) { }
 
 /* Effets visuels : relayés au moteur 3D s'il est chargé */
 function fx(type, a, b, c) {

@@ -50,6 +50,12 @@
     text-shadow:0 0 12px #ff8a00,0 0 40px #ff5a00,3px 4px 0 #000}
   #overlay .o2{margin-top:10px;font:bold 15px Tahoma;color:#fff;text-shadow:0 0 8px #0af,1px 1px 0 #000;animation:blink 1s steps(2) infinite}
   @keyframes blink{50%{opacity:.25}}
+  #replay{position:absolute;left:14px;top:12px;display:none;pointer-events:none;color:#ff3b3b;font:bold 20px "Lucida Console",monospace;
+    text-shadow:0 0 8px #f00,2px 2px 0 #000;animation:blink 1s steps(2) infinite}
+  #replay small{display:block;font:11px Tahoma;color:#fff;text-shadow:1px 1px 0 #000}
+  #stage.replaying canvas{filter:saturate(.55) contrast(1.15) sepia(.25)}
+  #stage.replaying::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px)}
   #loading{position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#8af;font:12px Tahoma;pointer-events:none;text-shadow:0 0 6px #04f}
   /* ---------- Panneau ---------- */
   #panel{width:265px;height:780px;background:radial-gradient(ellipse at 50% 0%,#1d2a6b 0%,#080c26 55%,#03040e 100%);
