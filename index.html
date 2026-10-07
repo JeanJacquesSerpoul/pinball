@@ -154,6 +154,8 @@
         <div data-a="v2d" id="optV2d">Affichage 2D (classique)</div>
         <div data-a="v3d" id="optV3d" class="chk">Affichage 3D<span>F6</span></div>
         <hr>
+        <div data-a="rumble" id="optRumble" class="chk">Vibrations de la manette</div>
+        <hr>
         <div data-a="cam" id="optCam" class="chk">Caméra dynamique</div>
         <div data-a="zoom" id="optZoom">Zoom sur la bille<span>F7</span></div>
         <div data-a="fx" id="optFx" class="chk">Effets spectaculaires</div>
@@ -192,6 +194,7 @@
         <b>/</b> / <b>Maj D</b> / <b>→</b> : flipper droit<br>
         <b>Espace</b> (maintenir) : lanceur<br>
         <b>Clic G</b> / <b>Clic D</b> : flippers<br>
+        <b>Manette</b> : LB / RB flippers · A lanceur<br>
         <b>X</b> <b>.</b> <b>↑</b> : secouer la table<br>
         <b>F2</b> nouvelle partie · <b>F3</b> pause
       </div>
@@ -270,11 +273,23 @@ const G = {
 };
 const ball = { x: 386, y: 712, vx: 0, vy: 0, inLane: true, fromLane: true, cap: 0, capCd: 0, live: false, sens: {} };
 const keys = { left: false, right: false };
-const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false };
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true };
 try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; } catch (e) { }
 
 /* Effets visuels : relayés au moteur 3D s'il est chargé */
-function fx(type, a, b, c) { if (window.FX3D && OPT.fx && OPT.view3d) window.FX3D(type, a, b, c); }
+function fx(type, a, b, c) {
+  const rb = RUMBLE[type]; if (rb) rumble(...rb);
+  if (window.FX3D && OPT.fx && OPT.view3d) window.FX3D(type, a, b, c);
+}
+// [durée ms, moteur fort, moteur faible] pour chaque événement
+const RUMBLE = { bump: [70, .25, .5], sling: [50, .15, .4], drop: [60, .2, .3], hole: [400, .4, .2], eject: [150, .6, .4],
+  launch: [180, .5, .3], mission: [600, .6, .6], rank: [400, .4, .5], drain: [500, .8, .3], tilt: [800, 1, 1], nudge: [120, .5, .2] };
+function rumble(ms, strong, weak) {
+  if (!OPT.rumble) return;
+  for (const gp of navigator.getGamepads ? navigator.getGamepads() : []) {
+    if (gp && gp.vibrationActuator) gp.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => { });
+  }
+}
 function banner(text, color = '#38e0ff', sub = '') {
   if (!OPT.fx) return;
   const el = document.getElementById('banner');
@@ -756,6 +771,7 @@ function frame(now) {
     if (msgT > 0 && msgT < 9000) { msgT -= dt; if (msgT <= 0) idleText(); }
     musicAcc += dt; if (musicAcc > .2) { musicAcc = 0; musicTick(); }
   }
+  pollPad();
   if (!minimized) { if (window.R3D && OPT.view3d) window.R3D.render(run ? dt : 0, dt); else render2D(); }
   updPanel();
   requestAnimationFrame(frame);
@@ -843,6 +859,44 @@ stage.addEventListener('pointerdown', e => {
 const ptrUp = e => { if (e.pointerType !== 'mouse') holdEnd('p' + e.pointerId); };
 stage.addEventListener('pointerup', ptrUp); stage.addEventListener('pointercancel', ptrUp);
 addEventListener('blur', () => [...holds.keys()].forEach(holdEnd));
+
+/* ---------------- Manette (Xbox et toute manette au format standard) ----------------
+   LB / LT / croix gauche : flipper gauche      RB / RT / croix droite : flipper droit
+   A (maintenir) : lanceur, ou nouvelle partie   X / B / Y : secouer à gauche / droite / haut
+   Start (Menu) : pause / nouvelle partie        Back (Affichage) : 2D / 3D   Stick droit clic : zoom */
+const padPrev = {};
+function padPressed(b) { return b && (b.pressed || b.value > .3); }
+function pollPad() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const gp of pads) {
+    if (!gp || !gp.connected) continue;
+    const prev = padPrev[gp.index] || (padPrev[gp.index] = {}), B = gp.buttons;
+    const state = {
+      L: padPressed(B[4]) || padPressed(B[6]) || padPressed(B[14]) || gp.axes[0] < -.6,
+      R: padPressed(B[5]) || padPressed(B[7]) || padPressed(B[15]) || gp.axes[0] > .6,
+      A: padPressed(B[0]), X: padPressed(B[2]), Bn: padPressed(B[1]), Y: padPressed(B[3]),
+      start: padPressed(B[9]), back: padPressed(B[8]), rs: padPressed(B[11]),
+    };
+    const edge = k => state[k] && !prev[k], id = 'g' + gp.index;
+    if (!dlgOpen) {
+      ['L', 'R'].forEach(k => { if (edge(k) && G.state === 'play') holdStart(id + k, k); else if (!state[k] && prev[k]) holdEnd(id + k); });
+      if (edge('A')) holdStart(id + 'A', 'P'); else if (!state.A && prev.A) holdEnd(id + 'A');
+      if (edge('X')) nudge(1, 0);
+      if (edge('Bn')) nudge(-1, 0);
+      if (edge('Y')) nudge(0, -1);
+      if (edge('start')) { if (G.state === 'play') togglePause(); else newGame(); }
+      if (edge('back')) setView(!OPT.view3d);
+      if (edge('rs')) toggleZoom();
+    } else if (edge('A') || edge('start') || edge('Bn')) closeDlg();
+    Object.assign(prev, state);
+  }
+}
+addEventListener('gamepadconnected', e => {
+  msg('MANETTE CONNECTÉE', (e.gamepad?.id || '').replace(/\(.*\)/, '').trim().slice(0, 40), 3);
+  banner('MANETTE CONNECTÉE', '#3cff6a', 'LB / RB : FLIPPERS · A : LANCEUR');
+  rumble(250, .5, .5);
+});
+addEventListener('gamepaddisconnected', e => { holdEnd('g' + e.gamepad.index + 'L'); holdEnd('g' + e.gamepad.index + 'R'); holdEnd('g' + e.gamepad.index + 'A'); delete padPrev[e.gamepad.index]; msg('MANETTE DÉCONNECTÉE', '', 2); });
 stage.addEventListener('contextmenu', e => e.preventDefault());
 
 function togglePause() { if (G.state !== 'play') return; G.paused = !G.paused; if (G.paused) msg('PAUSE', 'F3 pour reprendre', 9999); else { msgT = 0; idleText(); } }
@@ -902,6 +956,7 @@ function act(a) {
   else if (a === 'v2d') setView(false);
   else if (a === 'v3d') setView(true);
   else if (a === 'cam') toggleOpt('cam', 'optCam');
+  else if (a === 'rumble') { toggleOpt('rumble', 'optRumble'); rumble(200, .5, .5); }
   else if (a === 'zoom') toggleZoom();
   else if (a === 'fx') toggleOpt('fx', 'optFx');
   else if (a === 'full') toggleFull();
@@ -925,6 +980,7 @@ function showHelp() {
     <tr><td>Nouvelle partie</td><td>F2</td></tr><tr><td>Pause</td><td>F3</td></tr>
     <tr><td>Affichage 2D / 3D</td><td>F6 (ou menu Options)</td></tr>
     <tr><td>Zoom sur la bille</td><td>F7 (ou menu Options)</td></tr>
+    <tr><td>Manette Xbox</td><td>LB / LT = flipper gauche, RB / RT = flipper droit, A = lanceur, X / B / Y = secouer, Menu = pause, Affichage = 2D / 3D, clic stick droit = zoom</td></tr>
     <tr><td>Souris</td><td>Clic gauche / droit = flipper gauche / droit, clic molette = lanceur</td></tr>
     <tr><td>Tactile</td><td>Moitié gauche/droite = flippers, coin bas-droit = lanceur</td></tr></table>
     <br><b>But :</b> accomplissez les missions pour monter en grade, de Cadet jusqu'à Amiral de la Flotte. Les 3 couloirs du haut augmentent le multiplicateur ; 3 missions = une bille supplémentaire. Attention au TILT !`);
