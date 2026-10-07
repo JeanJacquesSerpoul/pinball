@@ -64,7 +64,7 @@ npm test        # lance les tests
 npm run check   # vérifie que index.html est à jour
 ```
 
-Aucune dépendance à installer : Node.js 22 ou plus suffit. Les tests sont lancés automatiquement sur GitHub à chaque envoi.
+Aucune dépendance à installer : Node.js 22 ou plus suffit. Les tests sont lancés automatiquement sur GitHub à chaque envoi ; le site n'est publié que s'ils réussissent.
 
 ## Crédits
 
