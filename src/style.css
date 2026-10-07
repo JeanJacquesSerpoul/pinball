@@ -41,6 +41,17 @@
     text-shadow:0 0 8px var(--c),0 0 22px var(--c),0 0 48px var(--c),3px 4px 0 #000;-webkit-text-stroke:1px rgba(0,0,0,.4)}
   #banner small{display:block;font:bold 18px Tahoma,sans-serif;letter-spacing:3px;margin-top:8px;text-shadow:0 0 10px var(--c),2px 2px 0 #000}
   #banner.go{animation:ban 2.2s cubic-bezier(.2,1.3,.4,1) forwards}
+  body.calm #banner.go{animation:banCalm 2.2s ease forwards}
+  @keyframes banCalm{0%{opacity:0}10%{opacity:1}80%{opacity:1}100%{opacity:0}}
+  body.calm #overlay .o2,body.calm #replay{animation:none}
+  /* Taille du texte du panneau */
+  #panel.t-large .msgbox{font-size:15px} #panel.t-large .lcd .row{font-size:16px} #panel.t-large .ranks{font-size:13px} #panel.t-large .hi{font-size:14px}
+  #panel.t-xlarge .msgbox{font-size:18px} #panel.t-xlarge .lcd .row{font-size:18px} #panel.t-xlarge .score{font-size:34px}
+  #panel.t-xlarge .ranks{font-size:15px} #panel.t-xlarge .hi{font-size:16px} #panel.t-xlarge .keys{display:none}
+  #win.vert #panel.t-large .msgbox,#win.vert #panel.t-xlarge .msgbox{font-size:14px}
+  .dwin .db label{display:block;margin:3px 0}
+  .dwin .db .kb{display:inline-block;min-width:60px;padding:1px 6px;border:1px solid #888;border-radius:3px;background:#fff;font:11px 'Lucida Console',monospace;text-align:center}
+  .dwin .db .kb.wait{background:#ffeaa0;animation:blink 1s steps(2) infinite}
   @keyframes ban{0%{opacity:0;transform:scale(3.2) rotate(-6deg);filter:blur(10px)}
     12%{opacity:1;transform:scale(1) rotate(0);filter:blur(0)}
     80%{opacity:1;transform:scale(1.07)}
@@ -111,7 +122,7 @@
   /* ---------- Boîte de dialogue XP ---------- */
   #dlg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30}
   #dlg.show{display:flex}
-  .dwin{width:360px;max-width:92vw;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0;background:var(--xp-face);box-shadow:3px 4px 14px rgba(0,0,0,.5)}
+  .dwin{width:400px;max-width:92vw;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0;background:var(--xp-face);box-shadow:3px 4px 14px rgba(0,0,0,.5)}
   .dwin .dt{height:26px;display:flex;align-items:center;padding:0 4px 0 8px;color:#fff;font-weight:bold;font-size:12px;margin:0 -3px;border-radius:7px 7px 0 0;
     background:linear-gradient(#0997ff 0%,#0053ee 8%,#0050ee 40%,#06f 88%,#003dd7 100%);text-shadow:1px 1px #0f1089}
   .dwin .dt span{flex:1}

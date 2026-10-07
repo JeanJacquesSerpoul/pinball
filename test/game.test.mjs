@@ -99,3 +99,16 @@ test('le clavier actionne les flippers (Z et /)', () => {
   g.fire('keydown', { code: 'Slash', key: '/' });
   assert.equal(g.run('keys.right'), true);
 });
+
+test('les touches peuvent être reconfigurées (et restent uniques par action)', () => {
+  const g = started();
+  g.run("bindKey('left', 'KeyA'); closeDlg()");
+  g.fire('keydown', { code: 'KeyA', key: 'a' });
+  assert.equal(g.run('keys.left'), true);
+  g.fire('keyup', { code: 'KeyA', key: 'a' });
+  g.fire('keydown', { code: 'KeyZ', key: 'z' });
+  assert.equal(g.run('keys.left'), false, "l'ancienne touche ne doit plus agir");
+  g.run("bindKey('right', 'KeyA')");
+  assert.equal(g.run("KEYMAP.left.includes('KeyA')"), false);
+  assert.deepEqual(JSON.parse(g.store['pinballXP.keys']).right, ['KeyA']);
+});

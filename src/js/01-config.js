@@ -100,8 +100,11 @@ const G = {
 function mkBall() { return { x: 386, y: 712, vx: 0, vy: 0, h: 0, inLane: true, fromLane: true, skill: false, cap: 0, capCd: 0, live: false, sens: {}, ramp: null }; }
 let ball = mkBall(), balls = [ball];
 const keys = { left: false, right: false };
-const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal', replay: true, slowmo: true };
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal', replay: true, slowmo: true, calm: false, text: 'normal' };
 try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; OPT.diff = localStorage.getItem('pinballXP.diff') || 'normal';
+  const calm = localStorage.getItem('pinballXP.calm');
+  OPT.calm = calm ? calm === '1' : !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  OPT.text = localStorage.getItem('pinballXP.text') || 'normal';
   OPT.replay = localStorage.getItem('pinballXP.replay') !== '0'; OPT.slowmo = localStorage.getItem('pinballXP.slowmo') !== '0'; } catch (e) { }
 
 /* Effets visuels : relayés au moteur 3D s'il est chargé */
@@ -125,7 +128,7 @@ function banner(text, color = '#38e0ff', sub = '') {
   el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
 }
 function flash(color = 'rgba(255,255,255,.8)') {
-  if (!OPT.fx) return;
+  if (!OPT.fx || OPT.calm) return;
   const el = document.getElementById('flash');
   el.style.background = `radial-gradient(circle at 50% 50%, ${color}, transparent 75%)`;
   el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');

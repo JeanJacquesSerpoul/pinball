@@ -678,13 +678,13 @@ function render3D(dt, realDt) {
   const sm = 1 - Math.exp(-realDt * (attract ? 1.2 : OPT.zoom ? 7 : 3.2));
   camPos.lerp(tgtPos, sm); camLook.lerp(tgtLook, sm);
   S.shake *= Math.exp(-realDt * 7);
-  const sh = OPT.fx ? S.shake : 0;
+  const sh = OPT.fx && !OPT.calm ? S.shake : 0;
   camera.position.set(camPos.x + (Math.random() - .5) * sh + S.shx * sh * .3, camPos.y + (Math.random() - .5) * sh, camPos.z + (Math.random() - .5) * sh);
   camera.lookAt(camLook);
   S.shx *= .9;
   S.fov = Math.max(0, S.fov - realDt * 1.4);
   S.slow = Math.max(0, (S.slow || 0) - realDt * 1.1);
-  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14 - Math.sin(Math.min(1, S.slow) * Math.PI) * 9; camera.updateProjectionMatrix();
+  camera.fov = OPT.calm ? 40 : 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14 - Math.sin(Math.min(1, S.slow) * Math.PI) * 9; camera.updateProjectionMatrix();
 
   // Bloom & exposition
   S.pulse = Math.max(0, S.pulse - realDt * 1.8);

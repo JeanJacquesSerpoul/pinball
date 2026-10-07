@@ -24,8 +24,28 @@ function plungeEnd() {
   }
   plunger.y1 = plunger.y2 = 722;
 }
-const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
+// Touches par action (codes physiques). Les caractères « chars » complètent les touches par défaut
+// pour les claviers non QWERTY (ex. Z et / sur un clavier AZERTY).
+const DEFAULT_KEYS = {
+  left: { label: 'Flipper gauche', codes: ['KeyZ', 'ShiftLeft', 'ArrowLeft'], chars: ['z', 'Z'] },
+  right: { label: 'Flipper droit', codes: ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], chars: ['/', ':'] },
+  plunge: { label: 'Lanceur', codes: ['Space', 'Enter', 'ArrowDown'], chars: [] },
+  nudgeL: { label: 'Secouer à gauche', codes: ['KeyX'], chars: ['x', 'X'] },
+  nudgeR: { label: 'Secouer à droite', codes: ['Period', 'NumpadDecimal'], chars: ['.'] },
+  nudgeU: { label: 'Secouer vers le haut', codes: ['ArrowUp'], chars: [] },
+};
+let KEYMAP = {};   // action -> liste de codes personnalisés (absente = touches par défaut)
+try { KEYMAP = JSON.parse(localStorage.getItem('pinballXP.keys') || '{}'); } catch (e) { }
+function keyAction(e) {
+  for (const a in DEFAULT_KEYS) {
+    if (KEYMAP[a]) { if (KEYMAP[a].includes(e.code)) return a; }
+    else if (DEFAULT_KEYS[a].codes.includes(e.code) || DEFAULT_KEYS[a].chars.includes(e.key)) return a;
+  }
+  return null;
+}
+let bindingAction = null;   // action en attente d'une nouvelle touche (boîte « Commandes »)
 addEventListener('keydown', e => {
+  if (bindingAction) { e.preventDefault(); bindKey(bindingAction, e.code); return; }
   if (REPLAY.active) { e.preventDefault(); endReplay(); return; }   // une touche passe la rediffusion
   if (dlgOpen) {   // dans une boîte de dialogue : Entrée/Échap ferment, la saisie de texte reste possible
     if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Escape') { e.preventDefault(); closeDlg(); }
@@ -39,18 +59,21 @@ addEventListener('keydown', e => {
   if (c === 'F4') { e.preventDefault(); toggleFull(); return; }
   if (c === 'F6') { e.preventDefault(); setView(!OPT.view3d); return; }
   if (c === 'F7') { e.preventDefault(); toggleZoom(); return; }
-  if (KL.includes(c) || e.key === 'z' || e.key === 'Z') { e.preventDefault(); flip('L', true); }
-  else if (KR.includes(c) || e.key === '/' || e.key === ':') { e.preventDefault(); flip('R', true); }
-  else if (KP.includes(c)) { e.preventDefault(); if (!e.repeat) plungeStart(); }
-  else if (!e.repeat && (c === 'KeyX' || e.key === 'x')) nudge(1, 0);
-  else if (!e.repeat && (c === 'Period' || e.key === '.' || c === 'NumpadDecimal')) nudge(-1, 0);
-  else if (!e.repeat && c === 'ArrowUp') { e.preventDefault(); nudge(0, -1); }
+  const a = keyAction(e); if (!a) return;
+  e.preventDefault();
+  if (a === 'left') flip('L', true);
+  else if (a === 'right') flip('R', true);
+  else if (e.repeat) return;
+  else if (a === 'plunge') plungeStart();
+  else if (a === 'nudgeL') nudge(1, 0);
+  else if (a === 'nudgeR') nudge(-1, 0);
+  else if (a === 'nudgeU') nudge(0, -1);
 });
 addEventListener('keyup', e => {
-  const c = e.code;
-  if (KL.includes(c) || e.key === 'z' || e.key === 'Z') flip('L', false);
-  else if (KR.includes(c) || e.key === '/' || e.key === ':') flip('R', false);
-  else if (KP.includes(c)) plungeEnd();
+  const a = keyAction(e);
+  if (a === 'left') flip('L', false);
+  else if (a === 'right') flip('R', false);
+  else if (a === 'plunge') plungeEnd();
 });
 // Tactile / souris sur la zone de jeu
 // Commandes à la souris et au toucher.

@@ -53,6 +53,17 @@
     text-shadow:0 0 8px var(--c),0 0 22px var(--c),0 0 48px var(--c),3px 4px 0 #000;-webkit-text-stroke:1px rgba(0,0,0,.4)}
   #banner small{display:block;font:bold 18px Tahoma,sans-serif;letter-spacing:3px;margin-top:8px;text-shadow:0 0 10px var(--c),2px 2px 0 #000}
   #banner.go{animation:ban 2.2s cubic-bezier(.2,1.3,.4,1) forwards}
+  body.calm #banner.go{animation:banCalm 2.2s ease forwards}
+  @keyframes banCalm{0%{opacity:0}10%{opacity:1}80%{opacity:1}100%{opacity:0}}
+  body.calm #overlay .o2,body.calm #replay{animation:none}
+  /* Taille du texte du panneau */
+  #panel.t-large .msgbox{font-size:15px} #panel.t-large .lcd .row{font-size:16px} #panel.t-large .ranks{font-size:13px} #panel.t-large .hi{font-size:14px}
+  #panel.t-xlarge .msgbox{font-size:18px} #panel.t-xlarge .lcd .row{font-size:18px} #panel.t-xlarge .score{font-size:34px}
+  #panel.t-xlarge .ranks{font-size:15px} #panel.t-xlarge .hi{font-size:16px} #panel.t-xlarge .keys{display:none}
+  #win.vert #panel.t-large .msgbox,#win.vert #panel.t-xlarge .msgbox{font-size:14px}
+  .dwin .db label{display:block;margin:3px 0}
+  .dwin .db .kb{display:inline-block;min-width:60px;padding:1px 6px;border:1px solid #888;border-radius:3px;background:#fff;font:11px 'Lucida Console',monospace;text-align:center}
+  .dwin .db .kb.wait{background:#ffeaa0;animation:blink 1s steps(2) infinite}
   @keyframes ban{0%{opacity:0;transform:scale(3.2) rotate(-6deg);filter:blur(10px)}
     12%{opacity:1;transform:scale(1) rotate(0);filter:blur(0)}
     80%{opacity:1;transform:scale(1.07)}
@@ -123,7 +134,7 @@
   /* ---------- Boîte de dialogue XP ---------- */
   #dlg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30}
   #dlg.show{display:flex}
-  .dwin{width:360px;max-width:92vw;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0;background:var(--xp-face);box-shadow:3px 4px 14px rgba(0,0,0,.5)}
+  .dwin{width:400px;max-width:92vw;border:3px solid #0831d9;border-top:0;border-radius:8px 8px 0 0;background:var(--xp-face);box-shadow:3px 4px 14px rgba(0,0,0,.5)}
   .dwin .dt{height:26px;display:flex;align-items:center;padding:0 4px 0 8px;color:#fff;font-weight:bold;font-size:12px;margin:0 -3px;border-radius:7px 7px 0 0;
     background:linear-gradient(#0997ff 0%,#0053ee 8%,#0050ee 40%,#06f 88%,#003dd7 100%);text-shadow:1px 1px #0f1089}
   .dwin .dt span{flex:1}
@@ -186,6 +197,7 @@
         <div data-a="q-medium" id="optQmedium">Qualité : moyenne</div>
         <div data-a="q-low" id="optQlow">Qualité : basse</div>
         <hr>
+        <div data-a="access">Accessibilité et commandes...</div>
         <div data-a="full">Plein écran<span>F4</span></div>
       </div>
     </div>
@@ -342,8 +354,11 @@ const G = {
 function mkBall() { return { x: 386, y: 712, vx: 0, vy: 0, h: 0, inLane: true, fromLane: true, skill: false, cap: 0, capCd: 0, live: false, sens: {}, ramp: null }; }
 let ball = mkBall(), balls = [ball];
 const keys = { left: false, right: false };
-const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal', replay: true, slowmo: true };
+const OPT = { sound: true, music: false, cam: true, fx: true, view3d: true, zoom: false, rumble: true, quality: 'auto', diff: 'normal', replay: true, slowmo: true, calm: false, text: 'normal' };
 try { OPT.view3d = localStorage.getItem('pinballXP.view') !== '2d'; OPT.zoom = localStorage.getItem('pinballXP.zoom') === '1'; OPT.quality = localStorage.getItem('pinballXP.quality') || 'auto'; OPT.diff = localStorage.getItem('pinballXP.diff') || 'normal';
+  const calm = localStorage.getItem('pinballXP.calm');
+  OPT.calm = calm ? calm === '1' : !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  OPT.text = localStorage.getItem('pinballXP.text') || 'normal';
   OPT.replay = localStorage.getItem('pinballXP.replay') !== '0'; OPT.slowmo = localStorage.getItem('pinballXP.slowmo') !== '0'; } catch (e) { }
 
 /* Effets visuels : relayés au moteur 3D s'il est chargé */
@@ -367,7 +382,7 @@ function banner(text, color = '#38e0ff', sub = '') {
   el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
 }
 function flash(color = 'rgba(255,255,255,.8)') {
-  if (!OPT.fx) return;
+  if (!OPT.fx || OPT.calm) return;
   const el = document.getElementById('flash');
   el.style.background = `radial-gradient(circle at 50% 50%, ${color}, transparent 75%)`;
   el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
@@ -955,7 +970,7 @@ function render2D() {
   cam2.x += (clamp(tx, hw, TW - hw) - cam2.x) * .15; cam2.y += (clamp(ty, hh, TH - hh) - cam2.y) * .15;
   cam2.x = clamp(cam2.x, hw, TW - hw); cam2.y = clamp(cam2.y, hh, TH - hh);
   ctx.translate(TW / 2, TH / 2); ctx.scale(cam2.k, cam2.k); ctx.translate(-cam2.x, -cam2.y);
-  let ox = 0, oy = 0; if (G.shake > 0) { ox = G.shakeX * G.shake / .15; oy = G.shakeY * G.shake / .15; }
+  let ox = 0, oy = 0; if (G.shake > 0 && !OPT.calm) { ox = G.shakeX * G.shake / .15; oy = G.shakeY * G.shake / .15; }
   ctx.translate(ox, oy);
   ctx.drawImage(st, 0, 0, TW, TH);
   const blink = (Math.floor(G.t * 4) % 2) === 0;
@@ -1120,8 +1135,28 @@ function plungeEnd() {
   }
   plunger.y1 = plunger.y2 = 722;
 }
-const KL = ['KeyZ', 'ShiftLeft', 'ArrowLeft'], KR = ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], KP = ['Space', 'Enter', 'ArrowDown'];
+// Touches par action (codes physiques). Les caractères « chars » complètent les touches par défaut
+// pour les claviers non QWERTY (ex. Z et / sur un clavier AZERTY).
+const DEFAULT_KEYS = {
+  left: { label: 'Flipper gauche', codes: ['KeyZ', 'ShiftLeft', 'ArrowLeft'], chars: ['z', 'Z'] },
+  right: { label: 'Flipper droit', codes: ['Slash', 'ShiftRight', 'ArrowRight', 'NumpadDivide'], chars: ['/', ':'] },
+  plunge: { label: 'Lanceur', codes: ['Space', 'Enter', 'ArrowDown'], chars: [] },
+  nudgeL: { label: 'Secouer à gauche', codes: ['KeyX'], chars: ['x', 'X'] },
+  nudgeR: { label: 'Secouer à droite', codes: ['Period', 'NumpadDecimal'], chars: ['.'] },
+  nudgeU: { label: 'Secouer vers le haut', codes: ['ArrowUp'], chars: [] },
+};
+let KEYMAP = {};   // action -> liste de codes personnalisés (absente = touches par défaut)
+try { KEYMAP = JSON.parse(localStorage.getItem('pinballXP.keys') || '{}'); } catch (e) { }
+function keyAction(e) {
+  for (const a in DEFAULT_KEYS) {
+    if (KEYMAP[a]) { if (KEYMAP[a].includes(e.code)) return a; }
+    else if (DEFAULT_KEYS[a].codes.includes(e.code) || DEFAULT_KEYS[a].chars.includes(e.key)) return a;
+  }
+  return null;
+}
+let bindingAction = null;   // action en attente d'une nouvelle touche (boîte « Commandes »)
 addEventListener('keydown', e => {
+  if (bindingAction) { e.preventDefault(); bindKey(bindingAction, e.code); return; }
   if (REPLAY.active) { e.preventDefault(); endReplay(); return; }   // une touche passe la rediffusion
   if (dlgOpen) {   // dans une boîte de dialogue : Entrée/Échap ferment, la saisie de texte reste possible
     if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Escape') { e.preventDefault(); closeDlg(); }
@@ -1135,18 +1170,21 @@ addEventListener('keydown', e => {
   if (c === 'F4') { e.preventDefault(); toggleFull(); return; }
   if (c === 'F6') { e.preventDefault(); setView(!OPT.view3d); return; }
   if (c === 'F7') { e.preventDefault(); toggleZoom(); return; }
-  if (KL.includes(c) || e.key === 'z' || e.key === 'Z') { e.preventDefault(); flip('L', true); }
-  else if (KR.includes(c) || e.key === '/' || e.key === ':') { e.preventDefault(); flip('R', true); }
-  else if (KP.includes(c)) { e.preventDefault(); if (!e.repeat) plungeStart(); }
-  else if (!e.repeat && (c === 'KeyX' || e.key === 'x')) nudge(1, 0);
-  else if (!e.repeat && (c === 'Period' || e.key === '.' || c === 'NumpadDecimal')) nudge(-1, 0);
-  else if (!e.repeat && c === 'ArrowUp') { e.preventDefault(); nudge(0, -1); }
+  const a = keyAction(e); if (!a) return;
+  e.preventDefault();
+  if (a === 'left') flip('L', true);
+  else if (a === 'right') flip('R', true);
+  else if (e.repeat) return;
+  else if (a === 'plunge') plungeStart();
+  else if (a === 'nudgeL') nudge(1, 0);
+  else if (a === 'nudgeR') nudge(-1, 0);
+  else if (a === 'nudgeU') nudge(0, -1);
 });
 addEventListener('keyup', e => {
-  const c = e.code;
-  if (KL.includes(c) || e.key === 'z' || e.key === 'Z') flip('L', false);
-  else if (KR.includes(c) || e.key === '/' || e.key === ':') flip('R', false);
-  else if (KP.includes(c)) plungeEnd();
+  const a = keyAction(e);
+  if (a === 'left') flip('L', false);
+  else if (a === 'right') flip('R', false);
+  else if (a === 'plunge') plungeEnd();
 });
 // Tactile / souris sur la zone de jeu
 // Commandes à la souris et au toucher.
@@ -1294,6 +1332,7 @@ function act(a) {
   else if (a === 'help') showHelp();
   else if (a === 'high') showScores();
   else if (a === 'stats') showStats();
+  else if (a === 'access') showAccess();
   else if (a === 'daily') startDaily();
   else if (a === 'about') showDlg('À propos de Pinball', '<b>3D Pinball – Space Cadet</b><br>Recréation hommage du flipper livré avec Windows XP.<br><br>Rendu 3D temps réel : Three.js (WebGL), éclairage PBR, reflets dynamiques, bloom et particules. Physique, graphismes et sons générés par code.');
 }
@@ -1471,6 +1510,43 @@ function showStats() {
     ${row('Rampes', fmt(STATS.ramps))}${row('Multibilles', fmt(STATS.multiballs))}${row('Jackpots', fmt(STATS.jackpots))}
   </table>`);
 }
+/* ---------------- Accessibilité : touches configurables, mouvements réduits, taille du texte ---------------- */
+const KEY_NAMES = { Space: 'Espace', Enter: 'Entrée', ShiftLeft: 'Maj G', ShiftRight: 'Maj D', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
+  Slash: '/', Period: '.', NumpadDivide: 'Pavé /', NumpadDecimal: 'Pavé .', ControlLeft: 'Ctrl G', ControlRight: 'Ctrl D', AltLeft: 'Alt', Backspace: 'Retour' };
+const keyName = c => KEY_NAMES[c] || c.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Pavé ');
+function keysLabel(a) { return KEYMAP[a] ? KEYMAP[a].map(keyName).join(' / ') : DEFAULT_KEYS[a].codes.map(keyName).join(' / '); }
+function applyAccess() {
+  document.body.classList.toggle('calm', OPT.calm);
+  $('panel').classList.remove('t-large', 't-xlarge');
+  if (OPT.text !== 'normal') $('panel').classList.add('t-' + OPT.text);
+}
+function saveAccess() {
+  try { localStorage.setItem('pinballXP.calm', OPT.calm ? '1' : '0'); localStorage.setItem('pinballXP.text', OPT.text); localStorage.setItem('pinballXP.keys', JSON.stringify(KEYMAP)); } catch (e) { }
+}
+function bindKey(action, code) {
+  bindingAction = null;
+  if (code !== 'Escape') {
+    for (const a in KEYMAP) if (a !== action) KEYMAP[a] = KEYMAP[a].filter(c => c !== code);   // une touche = une seule action
+    KEYMAP[action] = [code];
+    saveAccess();
+  }
+  showAccess();
+}
+function showAccess() {
+  const rows = Object.keys(DEFAULT_KEYS).map(a => `<tr><td>${DEFAULT_KEYS[a].label}</td><td><span class="kb${bindingAction === a ? ' wait' : ''}">${bindingAction === a ? 'appuyez…' : esc(keysLabel(a))}</span></td>
+    <td><button class="xbtn" style="min-width:0" onclick="bindingAction='${a}';showAccess()">Modifier</button></td></tr>`).join('');
+  showDlg('Accessibilité et commandes', `
+    <b>Clavier</b> <span style="color:#666">(Échap pendant la saisie = annuler)</span>
+    <table>${rows}</table>
+    <button class="xbtn" onclick="KEYMAP={};saveAccess();showAccess()">Touches par défaut</button>
+    <hr style="border:0;border-top:1px solid #aca899;margin:10px 0">
+    <label><input type="checkbox" ${OPT.calm ? 'checked' : ''} onchange="OPT.calm=this.checked;saveAccess();applyAccess()">
+      Réduire les mouvements (pas de tremblements, de flashs ni de zooms brusques)</label>
+    <div style="margin-top:6px">Taille du texte du panneau :
+      ${[['normal', 'normale'], ['large', 'grande'], ['xlarge', 'très grande']].map(([v, n]) => `<label style="display:inline;margin-right:8px"><input type="radio" name="ts" ${OPT.text === v ? 'checked' : ''} onchange="OPT.text='${v}';saveAccess();applyAccess()"> ${n}</label>`).join('')}
+    </div>`);
+}
+applyAccess();
 </script>
 
 <!-- =====================================================================
@@ -2167,13 +2243,13 @@ function render3D(dt, realDt) {
   const sm = 1 - Math.exp(-realDt * (attract ? 1.2 : OPT.zoom ? 7 : 3.2));
   camPos.lerp(tgtPos, sm); camLook.lerp(tgtLook, sm);
   S.shake *= Math.exp(-realDt * 7);
-  const sh = OPT.fx ? S.shake : 0;
+  const sh = OPT.fx && !OPT.calm ? S.shake : 0;
   camera.position.set(camPos.x + (Math.random() - .5) * sh + S.shx * sh * .3, camPos.y + (Math.random() - .5) * sh, camPos.z + (Math.random() - .5) * sh);
   camera.lookAt(camLook);
   S.shx *= .9;
   S.fov = Math.max(0, S.fov - realDt * 1.4);
   S.slow = Math.max(0, (S.slow || 0) - realDt * 1.1);
-  camera.fov = 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14 - Math.sin(Math.min(1, S.slow) * Math.PI) * 9; camera.updateProjectionMatrix();
+  camera.fov = OPT.calm ? 40 : 40 + Math.sin(Math.min(1, S.fov) * Math.PI) * 14 - Math.sin(Math.min(1, S.slow) * Math.PI) * 9; camera.updateProjectionMatrix();
 
   // Bloom & exposition
   S.pulse = Math.max(0, S.pulse - realDt * 1.8);

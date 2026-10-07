@@ -64,6 +64,7 @@ function act(a) {
   else if (a === 'help') showHelp();
   else if (a === 'high') showScores();
   else if (a === 'stats') showStats();
+  else if (a === 'access') showAccess();
   else if (a === 'daily') startDaily();
   else if (a === 'about') showDlg('À propos de Pinball', '<b>3D Pinball – Space Cadet</b><br>Recréation hommage du flipper livré avec Windows XP.<br><br>Rendu 3D temps réel : Three.js (WebGL), éclairage PBR, reflets dynamiques, bloom et particules. Physique, graphismes et sons générés par code.');
 }

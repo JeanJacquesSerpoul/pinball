@@ -19,7 +19,7 @@ function render2D() {
   cam2.x += (clamp(tx, hw, TW - hw) - cam2.x) * .15; cam2.y += (clamp(ty, hh, TH - hh) - cam2.y) * .15;
   cam2.x = clamp(cam2.x, hw, TW - hw); cam2.y = clamp(cam2.y, hh, TH - hh);
   ctx.translate(TW / 2, TH / 2); ctx.scale(cam2.k, cam2.k); ctx.translate(-cam2.x, -cam2.y);
-  let ox = 0, oy = 0; if (G.shake > 0) { ox = G.shakeX * G.shake / .15; oy = G.shakeY * G.shake / .15; }
+  let ox = 0, oy = 0; if (G.shake > 0 && !OPT.calm) { ox = G.shakeX * G.shake / .15; oy = G.shakeY * G.shake / .15; }
   ctx.translate(ox, oy);
   ctx.drawImage(st, 0, 0, TW, TH);
   const blink = (Math.floor(G.t * 4) % 2) === 0;
