@@ -125,8 +125,8 @@ function stepBall(dt) {
   hitFlipper(flL); hitFlipper(flR);
 
   if (ball.inLane && ball.x < 366) { ball.inLane = false; ball.skill = ball.fromLane; launched(); }
-  // Entrée de la rampe (derrière les cibles, côté gauche), bille montante assez rapide
-  if (Math.abs(ball.x - 78) < 16 && Math.abs(ball.y - 262) < 10 && ball.vy < -250) {
+  // Entrée de la rampe (centre-gauche), bille montante assez rapide
+  if (Math.abs(ball.x - RAMP_IN.x) < RAMP_IN.w && Math.abs(ball.y - RAMP_IN.y) < RAMP_IN.h && ball.vy < -250) {
     ball.ramp = { d: 0, v: Math.min(1400, Math.hypot(ball.vx, ball.vy)) }; ball.sens = {};
     tone(500, .3, 'sawtooth', .05, 1400); return;
   }

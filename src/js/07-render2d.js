@@ -62,6 +62,9 @@ function render2D() {
   rampPath(); ctx.strokeStyle = 'rgba(120,200,255,.18)'; ctx.lineWidth = 22; ctx.stroke();
   rampPath(); ctx.strokeStyle = 'rgba(220,235,255,.75)'; ctx.lineWidth = 24; ctx.setLineDash([2, 6]); ctx.stroke(); ctx.setLineDash([]);
   rampPath(); ctx.strokeStyle = 'rgba(10,20,40,.9)'; ctx.lineWidth = 18; ctx.globalAlpha = .35; ctx.stroke(); ctx.globalAlpha = 1;
+  // Entrée évasée de la rampe
+  ctx.strokeStyle = 'rgba(255,64,200,.85)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(RAMP_IN.x, RAMP_IN.y + 6, RAMP_IN.w, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
   for (const b of balls) {
     if (!b.live) continue;
     const s = (b.cap > 0 ? Math.max(.25, Math.abs(b.cap - .65) / .65) : 1) * (1 + (b.h || 0) / 90), r = R * s;

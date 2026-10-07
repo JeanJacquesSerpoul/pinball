@@ -37,9 +37,11 @@ const lanesPos = [147, 192, 237];
 const multPos = [151, 181, 211, 241];
 const rankPos = Array.from({ length: 9 }, (_, i) => i < 5 ? [150 + i * 23, 560] : [161 + (i - 5) * 23, 578]);
 
-// Rampe métallique surélevée : de l'entrée (derrière les cibles, à gauche) jusqu'au couloir de retour droit.
+// Rampe métallique surélevée : de l'entrée (centre-gauche, dans l'axe du flipper droit) jusqu'au couloir
+// de retour droit. RAMP_IN : centre et demi-dimensions de la zone d'entrée.
 // Points [x, y, hauteur] ; la bille la parcourt sur rails (trajectoire guidée).
-const RAMP_PTS = [[78, 262, 0], [68, 205, 12], [82, 135, 26], [135, 92, 34], [210, 72, 38], [285, 95, 36], [332, 160, 30], [350, 270, 26], [346, 385, 18], [333, 462, 8], [326, 500, 0]];
+const RAMP_IN = { x: 150, y: 392, w: 24, h: 14 };
+const RAMP_PTS = [[150, 392, 0], [140, 330, 10], [122, 262, 20], [104, 190, 27], [108, 128, 31], [150, 90, 35], [210, 72, 38], [285, 95, 36], [332, 160, 30], [350, 270, 26], [346, 385, 18], [333, 462, 8], [326, 500, 0]];
 const RAMP = (() => {   // échantillonnage Catmull-Rom avec longueur cumulée
   const P = RAMP_PTS, out = [];
   const cr = (a, b, c, d, t) => .5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
@@ -56,7 +58,7 @@ function rampAt(d) {   // position sur la rampe à la distance d
   const a = RAMP[i - 1], b = RAMP[i], t = Math.min(1, Math.max(0, (d - a.d) / ((b.d - a.d) || 1)));
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, h: a.h + (b.h - a.h) * t };
 }
-const kickPos = [35, 610], lockPos = [[62, 300], [62, 322], [62, 344]], extraPos = [300, 470];
+const kickPos = [35, 610], lockPos = [[126, 428], [150, 434], [174, 428]], extraPos = [300, 470];
 
 const flL = { x: 128, y: 672, len: 60, a: .52, rest: .52, up: -.45, w: 0 };
 const flR = { x: 264, y: 672, len: 60, a: Math.PI - .52, rest: Math.PI - .52, up: Math.PI + .45, w: 0 };

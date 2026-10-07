@@ -46,7 +46,8 @@ function drawArt(c, full) {
       c.beginPath(); c.moveTo(-5, -7); c.lineTo(3, 0); c.lineTo(-5, 7); c.stroke(); c.restore();
     }
   };
-  chevrons(150, 610, 112, 380, '#ffd23a', 7);
+  chevrons(122, 610, 104, 380, '#ffd23a', 6);
+  chevrons(178, 600, 152, 420, '#ff40c8', 6);   // vers l'entrée de la rampe
   chevrons(245, 610, 290, 462, '#c45cff', 6);
   chevrons(205, 470, 205, 345, '#ff8a2a', 5);
   chevrons(318, 600, 350, 395, '#ff9a1a', 6);
@@ -64,7 +65,7 @@ function drawArt(c, full) {
   c.fillText('GRADE', 196, 596);
   c.fillText('KICK', kickPos[0], kickPos[1] + 18);
   c.fillText('BILLE+', extraPos[0], extraPos[1] + 17);
-  c.save(); c.translate(48, 322); c.rotate(-Math.PI / 2); c.fillText('VERROUS', 0, 0); c.restore();
+  c.fillText('RAMPE', RAMP_IN.x, RAMP_IN.y + 58);
   c.font = 'bold 8px Tahoma'; c.fillStyle = 'rgba(255,230,120,.75)';
   multPos.forEach((x, i) => c.fillText('×' + (i + 2), x, 500));
   c.restore();

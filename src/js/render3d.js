@@ -290,9 +290,9 @@ const arrowMats = [40, 352].map(x => {
   RAMP.forEach((p, i) => {
     const a = RAMP[Math.max(0, i - 1)], b = RAMP[Math.min(RAMP.length - 1, i + 1)];
     let tx = b.x - a.x, tz = b.y - a.y; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
-    const c = V(p.x, p.y, p.h + 3);
-    left.push(c.clone().add(new THREE.Vector3(-tz * 7.5, 0, tx * 7.5)));
-    right.push(c.clone().add(new THREE.Vector3(tz * 7.5, 0, -tx * 7.5)));
+    const c = V(p.x, p.y, p.h + 3), hw = 7.5 + 16 * Math.max(0, 1 - p.d / 110);   // entrée évasée en entonnoir
+    left.push(c.clone().add(new THREE.Vector3(-tz * hw, 0, tx * hw)));
+    right.push(c.clone().add(new THREE.Vector3(tz * hw, 0, -tx * hw)));
     mid.push(V(p.x, p.y, p.h));
   });
   const railMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .15 });
@@ -311,8 +311,8 @@ const arrowMats = [40, 352].map(x => {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
   scene.add(new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: 0x40a0ff, emissive: 0x1060ff, emissiveIntensity: .35, transparent: true, opacity: .28, roughness: .1, side: THREE.DoubleSide, depthWrite: false })));
   // Entrée lumineuse de la rampe
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(11, 1.4, 8, 24, Math.PI), neonMat(0xff40c8));
-  mouth.position.copy(V(78, 268, 1)); mouth.rotation.x = -Math.PI / 2; scene.add(mouth);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(RAMP_IN.w, 1.6, 8, 32, Math.PI), neonMat(0xff40c8));
+  mouth.position.copy(V(RAMP_IN.x, RAMP_IN.y + 6, 1)); mouth.rotation.x = -Math.PI / 2; scene.add(mouth);
 }
 
 /* ---------- Trou noir (shader) ---------- */

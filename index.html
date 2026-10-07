@@ -291,9 +291,11 @@ const lanesPos = [147, 192, 237];
 const multPos = [151, 181, 211, 241];
 const rankPos = Array.from({ length: 9 }, (_, i) => i < 5 ? [150 + i * 23, 560] : [161 + (i - 5) * 23, 578]);
 
-// Rampe métallique surélevée : de l'entrée (derrière les cibles, à gauche) jusqu'au couloir de retour droit.
+// Rampe métallique surélevée : de l'entrée (centre-gauche, dans l'axe du flipper droit) jusqu'au couloir
+// de retour droit. RAMP_IN : centre et demi-dimensions de la zone d'entrée.
 // Points [x, y, hauteur] ; la bille la parcourt sur rails (trajectoire guidée).
-const RAMP_PTS = [[78, 262, 0], [68, 205, 12], [82, 135, 26], [135, 92, 34], [210, 72, 38], [285, 95, 36], [332, 160, 30], [350, 270, 26], [346, 385, 18], [333, 462, 8], [326, 500, 0]];
+const RAMP_IN = { x: 150, y: 392, w: 24, h: 14 };
+const RAMP_PTS = [[150, 392, 0], [140, 330, 10], [122, 262, 20], [104, 190, 27], [108, 128, 31], [150, 90, 35], [210, 72, 38], [285, 95, 36], [332, 160, 30], [350, 270, 26], [346, 385, 18], [333, 462, 8], [326, 500, 0]];
 const RAMP = (() => {   // échantillonnage Catmull-Rom avec longueur cumulée
   const P = RAMP_PTS, out = [];
   const cr = (a, b, c, d, t) => .5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
@@ -310,7 +312,7 @@ function rampAt(d) {   // position sur la rampe à la distance d
   const a = RAMP[i - 1], b = RAMP[i], t = Math.min(1, Math.max(0, (d - a.d) / ((b.d - a.d) || 1)));
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, h: a.h + (b.h - a.h) * t };
 }
-const kickPos = [35, 610], lockPos = [[62, 300], [62, 322], [62, 344]], extraPos = [300, 470];
+const kickPos = [35, 610], lockPos = [[126, 428], [150, 434], [174, 428]], extraPos = [300, 470];
 
 const flL = { x: 128, y: 672, len: 60, a: .52, rest: .52, up: -.45, w: 0 };
 const flR = { x: 264, y: 672, len: 60, a: Math.PI - .52, rest: Math.PI - .52, up: Math.PI + .45, w: 0 };
@@ -811,8 +813,8 @@ function stepBall(dt) {
   hitFlipper(flL); hitFlipper(flR);
 
   if (ball.inLane && ball.x < 366) { ball.inLane = false; ball.skill = ball.fromLane; launched(); }
-  // Entrée de la rampe (derrière les cibles, côté gauche), bille montante assez rapide
-  if (Math.abs(ball.x - 78) < 16 && Math.abs(ball.y - 262) < 10 && ball.vy < -250) {
+  // Entrée de la rampe (centre-gauche), bille montante assez rapide
+  if (Math.abs(ball.x - RAMP_IN.x) < RAMP_IN.w && Math.abs(ball.y - RAMP_IN.y) < RAMP_IN.h && ball.vy < -250) {
     ball.ramp = { d: 0, v: Math.min(1400, Math.hypot(ball.vx, ball.vy)) }; ball.sens = {};
     tone(500, .3, 'sawtooth', .05, 1400); return;
   }
@@ -897,7 +899,8 @@ function drawArt(c, full) {
       c.beginPath(); c.moveTo(-5, -7); c.lineTo(3, 0); c.lineTo(-5, 7); c.stroke(); c.restore();
     }
   };
-  chevrons(150, 610, 112, 380, '#ffd23a', 7);
+  chevrons(122, 610, 104, 380, '#ffd23a', 6);
+  chevrons(178, 600, 152, 420, '#ff40c8', 6);   // vers l'entrée de la rampe
   chevrons(245, 610, 290, 462, '#c45cff', 6);
   chevrons(205, 470, 205, 345, '#ff8a2a', 5);
   chevrons(318, 600, 350, 395, '#ff9a1a', 6);
@@ -915,7 +918,7 @@ function drawArt(c, full) {
   c.fillText('GRADE', 196, 596);
   c.fillText('KICK', kickPos[0], kickPos[1] + 18);
   c.fillText('BILLE+', extraPos[0], extraPos[1] + 17);
-  c.save(); c.translate(48, 322); c.rotate(-Math.PI / 2); c.fillText('VERROUS', 0, 0); c.restore();
+  c.fillText('RAMPE', RAMP_IN.x, RAMP_IN.y + 58);
   c.font = 'bold 8px Tahoma'; c.fillStyle = 'rgba(255,230,120,.75)';
   multPos.forEach((x, i) => c.fillText('×' + (i + 2), x, 500));
   c.restore();
@@ -1013,6 +1016,9 @@ function render2D() {
   rampPath(); ctx.strokeStyle = 'rgba(120,200,255,.18)'; ctx.lineWidth = 22; ctx.stroke();
   rampPath(); ctx.strokeStyle = 'rgba(220,235,255,.75)'; ctx.lineWidth = 24; ctx.setLineDash([2, 6]); ctx.stroke(); ctx.setLineDash([]);
   rampPath(); ctx.strokeStyle = 'rgba(10,20,40,.9)'; ctx.lineWidth = 18; ctx.globalAlpha = .35; ctx.stroke(); ctx.globalAlpha = 1;
+  // Entrée évasée de la rampe
+  ctx.strokeStyle = 'rgba(255,64,200,.85)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(RAMP_IN.x, RAMP_IN.y + 6, RAMP_IN.w, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
   for (const b of balls) {
     if (!b.live) continue;
     const s = (b.cap > 0 ? Math.max(.25, Math.abs(b.cap - .65) / .65) : 1) * (1 + (b.h || 0) / 90), r = R * s;
@@ -1855,9 +1861,9 @@ const arrowMats = [40, 352].map(x => {
   RAMP.forEach((p, i) => {
     const a = RAMP[Math.max(0, i - 1)], b = RAMP[Math.min(RAMP.length - 1, i + 1)];
     let tx = b.x - a.x, tz = b.y - a.y; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
-    const c = V(p.x, p.y, p.h + 3);
-    left.push(c.clone().add(new THREE.Vector3(-tz * 7.5, 0, tx * 7.5)));
-    right.push(c.clone().add(new THREE.Vector3(tz * 7.5, 0, -tx * 7.5)));
+    const c = V(p.x, p.y, p.h + 3), hw = 7.5 + 16 * Math.max(0, 1 - p.d / 110);   // entrée évasée en entonnoir
+    left.push(c.clone().add(new THREE.Vector3(-tz * hw, 0, tx * hw)));
+    right.push(c.clone().add(new THREE.Vector3(tz * hw, 0, -tx * hw)));
     mid.push(V(p.x, p.y, p.h));
   });
   const railMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: .15 });
@@ -1876,8 +1882,8 @@ const arrowMats = [40, 352].map(x => {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
   scene.add(new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: 0x40a0ff, emissive: 0x1060ff, emissiveIntensity: .35, transparent: true, opacity: .28, roughness: .1, side: THREE.DoubleSide, depthWrite: false })));
   // Entrée lumineuse de la rampe
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(11, 1.4, 8, 24, Math.PI), neonMat(0xff40c8));
-  mouth.position.copy(V(78, 268, 1)); mouth.rotation.x = -Math.PI / 2; scene.add(mouth);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(RAMP_IN.w, 1.6, 8, 32, Math.PI), neonMat(0xff40c8));
+  mouth.position.copy(V(RAMP_IN.x, RAMP_IN.y + 6, 1)); mouth.rotation.x = -Math.PI / 2; scene.add(mouth);
 }
 
 /* ---------- Trou noir (shader) ---------- */

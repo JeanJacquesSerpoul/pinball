@@ -9,7 +9,7 @@ const put = (g, o) => g.run(`Object.assign(ball, { inLane: false, fromLane: fals
 
 test("la rampe guide la bille jusqu'au couloir de retour droit et compte un verrou", () => {
   const g = started();
-  put(g, { x: 78, y: 275, vy: -900 });
+  put(g, { x: 150, y: 405, vy: -900 });
   g.sim(0.1);
   assert.ok(g.run('!!ball.ramp'), 'la bille doit être sur la rampe');
   let maxH = 0; for (let i = 0; i < 120 && g.run('!!ball.ramp'); i++) { g.sim(1 / 60); maxH = Math.max(maxH, g.run('ball.h')); }
@@ -21,7 +21,7 @@ test("la rampe guide la bille jusqu'au couloir de retour droit et compte un verr
 
 test('une bille qui descend devant la rampe ne la prend pas', () => {
   const g = started();
-  put(g, { x: 78, y: 250, vy: 400 });
+  put(g, { x: 150, y: 380, vy: 400 });
   g.sim(0.1);
   assert.equal(g.run('!!ball.ramp'), false);
 });
