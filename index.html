@@ -995,7 +995,7 @@ const M = {
   rubberR: new THREE.MeshStandardMaterial({ color: 0xd0141c, roughness: .45 }),
   black: new THREE.MeshStandardMaterial({ color: 0x050508, roughness: .8 }),
 };
-const neonMat = c => new THREE.MeshStandardMaterial({ color: 0x000000, emissive: c, emissiveIntensity: 4, toneMapped: false });
+const neonMat = c => new THREE.MeshStandardMaterial({ color: 0x000000, emissive: c, emissiveIntensity: 2.2, toneMapped: false });
 const glowMat = (c, op = 1) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
 
 /* ---------- Helpers de géométrie ---------- */
@@ -1320,7 +1320,7 @@ rocket.scale.setScalar(1.3);
 /* ---------- Post-traitement ---------- */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(STW, STH), .8, .45, 1.0);
+const bloom = new UnrealBloomPass(new THREE.Vector2(STW, STH), .3, .2, 1.3);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -1404,7 +1404,7 @@ function render3D(dt, realDt) {
     ballMesh.position.copy(V(ball.x, ball.y, R * sc - sink));
     const sp = Math.hypot(ball.vx, ball.vy);
     ballFx += (Math.min(1, Math.max(0, (sp - 600) / 1000)) - ballFx) * Math.min(1, realDt * 5);
-    ballGlow.position.copy(ballMesh.position); ballGlow.material.opacity = ballFx * .45 * sc;
+    ballGlow.position.copy(ballMesh.position); ballGlow.material.opacity = ballFx * .15 * sc;
     hist.unshift(ballMesh.position.clone()); if (hist.length > TRN) hist.pop();
     const inten = ballFx * 1.1;
     for (let i = 0; i < TRN; i++) {
@@ -1425,7 +1425,7 @@ function render3D(dt, realDt) {
   bumperObjs.forEach((o, i) => {
     const fl = Math.max(0, o.b.fl) / .15, chase = attract ? (Math.sin(t3 * 4 + i * 2) > .6 ? .6 : 0) : 0, k = Math.max(fl, chase);
     o.bodyMat.emissiveIntensity = .6 + k * 6; o.capTop.emissiveIntensity = .35 + k * 2.5; o.skirtMat.emissiveIntensity = .8 + k * 4;
-    o.light.intensity = k * 30000; o.halo.material.opacity = k * .9; o.cap.position.y = 24.5 - fl * 3;
+    o.light.intensity = k * 30000; o.halo.material.opacity = k * .3; o.cap.position.y = 24.5 - fl * 3;
   });
   slings.forEach((s, i) => { const k = Math.max(0, s.fl) / .12; slingMeshes[i].mat.emissiveIntensity = .5 + k * 5; slingMeshes[i].rub.emissiveIntensity = k * 3; });
   // Inserts
@@ -1433,7 +1433,7 @@ function render3D(dt, realDt) {
   inserts.forEach(o => {
     let on = attract ? ((Math.floor(t3 * 9) + o.i) % 7 < 2) : !!o.on();
     o.lvl += ((on ? 1 : 0) - o.lvl) * Math.min(1, dt * 20 || realDt * 20);
-    o.mat.emissiveIntensity = (.08 + o.lvl * 5) * dim; o.h.material.opacity = o.lvl * .85 * dim;
+    o.mat.emissiveIntensity = (.08 + o.lvl * 3) * dim; o.h.material.opacity = o.lvl * .3 * dim;
   });
   const m = MISSIONS[G.mIdx % MISSIONS.length];
   const orbOn = (!attract && m.ev === 'orbit' && blink()) || G.orbitFlash > 0 && blink(10) || attract && blink(2);
@@ -1478,7 +1478,7 @@ function render3D(dt, realDt) {
   // Bloom & exposition
   S.pulse = Math.max(0, S.pulse - realDt * 1.8);
   S.drainT = Math.max(0, S.drainT - realDt * .8);
-  bloom.strength = .8 + S.pulse * .9;
+  bloom.strength = .3 + S.pulse * .35;
   renderer.toneMappingExposure = (G.tilt ? .5 : .95) * (1 - S.drainT * .45) * (G.paused ? .4 : 1);
   rimA.intensity = 30000 * (1 + S.pulse); rimB.intensity = 30000 * (1 + S.pulse);
 
